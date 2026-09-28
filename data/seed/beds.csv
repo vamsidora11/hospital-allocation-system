@@ -1,0 +1,121 @@
+id,bed_type,ward,floor,status
+BED-0001,icu,ICU,4,occupied
+BED-0002,icu,ICU,4,occupied
+BED-0003,icu,ICU,4,occupied
+BED-0004,icu,ICU,4,occupied
+BED-0005,icu,ICU,4,occupied
+BED-0006,icu,ICU,4,occupied
+BED-0007,icu,ICU,4,occupied
+BED-0008,icu,ICU,4,occupied
+BED-0009,icu,ICU,4,occupied
+BED-0010,icu,ICU,4,occupied
+BED-0011,icu,ICU,4,occupied
+BED-0012,icu,ICU,4,occupied
+BED-0013,icu,ICU,4,occupied
+BED-0014,icu,ICU,4,occupied
+BED-0015,icu,ICU,4,occupied
+BED-0016,icu,ICU,4,occupied
+BED-0017,icu,ICU,4,occupied
+BED-0018,icu,ICU,4,occupied
+BED-0019,icu,ICU,4,occupied
+BED-0020,icu,ICU,4,occupied
+BED-0021,icu,ICU,4,available
+BED-0022,icu,ICU,4,available
+BED-0023,icu,ICU,4,available
+BED-0024,icu,ICU,4,available
+BED-0025,icu,ICU,4,available
+BED-0026,general,Ward 2,2,occupied
+BED-0027,general,Ward 3,3,occupied
+BED-0028,general,Ward 4,4,occupied
+BED-0029,general,Ward 2,2,occupied
+BED-0030,general,Ward 3,3,occupied
+BED-0031,general,Ward 4,4,occupied
+BED-0032,general,Ward 2,2,occupied
+BED-0033,general,Ward 3,3,occupied
+BED-0034,general,Ward 4,4,occupied
+BED-0035,general,Ward 2,2,occupied
+BED-0036,general,Ward 3,3,occupied
+BED-0037,general,Ward 4,4,occupied
+BED-0038,general,Ward 2,2,occupied
+BED-0039,general,Ward 3,3,occupied
+BED-0040,general,Ward 4,4,occupied
+BED-0041,general,Ward 2,2,occupied
+BED-0042,general,Ward 3,3,occupied
+BED-0043,general,Ward 4,4,occupied
+BED-0044,general,Ward 2,2,occupied
+BED-0045,general,Ward 3,3,occupied
+BED-0046,general,Ward 4,4,occupied
+BED-0047,general,Ward 2,2,occupied
+BED-0048,general,Ward 3,3,occupied
+BED-0049,general,Ward 4,4,occupied
+BED-0050,general,Ward 2,2,occupied
+BED-0051,general,Ward 3,3,occupied
+BED-0052,general,Ward 4,4,occupied
+BED-0053,general,Ward 2,2,occupied
+BED-0054,general,Ward 3,3,occupied
+BED-0055,general,Ward 4,4,occupied
+BED-0056,general,Ward 2,2,occupied
+BED-0057,general,Ward 3,3,occupied
+BED-0058,general,Ward 4,4,occupied
+BED-0059,general,Ward 2,2,occupied
+BED-0060,general,Ward 3,3,occupied
+BED-0061,general,Ward 4,4,occupied
+BED-0062,general,Ward 2,2,occupied
+BED-0063,general,Ward 3,3,occupied
+BED-0064,general,Ward 4,4,occupied
+BED-0065,general,Ward 2,2,occupied
+BED-0066,general,Ward 3,3,occupied
+BED-0067,general,Ward 4,4,occupied
+BED-0068,general,Ward 2,2,occupied
+BED-0069,general,Ward 3,3,occupied
+BED-0070,general,Ward 4,4,occupied
+BED-0071,general,Ward 2,2,occupied
+BED-0072,general,Ward 3,3,occupied
+BED-0073,general,Ward 4,4,occupied
+BED-0074,general,Ward 2,2,occupied
+BED-0075,general,Ward 3,3,occupied
+BED-0076,general,Ward 4,4,occupied
+BED-0077,general,Ward 2,2,occupied
+BED-0078,general,Ward 3,3,available
+BED-0079,general,Ward 4,4,available
+BED-0080,general,Ward 2,2,available
+BED-0081,general,Ward 3,3,available
+BED-0082,general,Ward 4,4,available
+BED-0083,general,Ward 2,2,available
+BED-0084,general,Ward 3,3,available
+BED-0085,general,Ward 4,4,available
+BED-0086,general,Ward 2,2,available
+BED-0087,general,Ward 3,3,available
+BED-0088,general,Ward 4,4,available
+BED-0089,general,Ward 2,2,available
+BED-0090,general,Ward 3,3,available
+BED-0091,general,Ward 4,4,available
+BED-0092,general,Ward 2,2,available
+BED-0093,general,Ward 3,3,available
+BED-0094,general,Ward 4,4,available
+BED-0095,general,Ward 2,2,available
+BED-0096,general,Ward 3,3,available
+BED-0097,general,Ward 4,4,available
+BED-0098,general,Ward 2,2,available
+BED-0099,general,Ward 3,3,available
+BED-0100,general,Ward 4,4,available
+BED-0101,general,Ward 2,2,available
+BED-0102,general,Ward 3,3,available
+BED-0103,general,Ward 4,4,available
+BED-0104,general,Ward 2,2,available
+BED-0105,general,Ward 3,3,available
+BED-0106,isolation,Isolation Wing,3,occupied
+BED-0107,isolation,Isolation Wing,3,occupied
+BED-0108,isolation,Isolation Wing,3,occupied
+BED-0109,isolation,Isolation Wing,3,occupied
+BED-0110,isolation,Isolation Wing,3,occupied
+BED-0111,isolation,Isolation Wing,3,occupied
+BED-0112,isolation,Isolation Wing,3,available
+BED-0113,isolation,Isolation Wing,3,available
+BED-0114,isolation,Isolation Wing,3,available
+BED-0115,isolation,Isolation Wing,3,available
+BED-0116,isolation,Isolation Wing,3,available
+BED-0117,isolation,Isolation Wing,3,available
+BED-0118,isolation,Isolation Wing,3,available
+BED-0119,isolation,Isolation Wing,3,available
+BED-0120,isolation,Isolation Wing,3,available

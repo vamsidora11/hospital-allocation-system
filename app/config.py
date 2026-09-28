@@ -19,8 +19,12 @@ class Settings(BaseSettings):
     chroma_host: str | None = None
     chroma_port: int = 8000
 
-    # LLM / embeddings — unset in local/dev; RAG and agent modules fall back
-    # to local/offline behavior when these are missing (see Phase 2+ TODOs).
+    # LLM / embeddings — provider priority in app/llm.py and app/rag/embeddings.py is
+    # Google AI Studio > Azure OpenAI > local offline fallback. Unset in this dev sandbox
+    # except for Google (see PROGRESS.md Phase 3 entry).
+    google_api_key: str | None = None
+    google_embedding_model: str = "models/text-embedding-004"
+    google_chat_model: str = "gemini-1.5-flash"
     azure_openai_api_key: str | None = None
     azure_openai_endpoint: str | None = None
     openai_api_key: str | None = None

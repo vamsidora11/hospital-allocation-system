@@ -1,0 +1,69 @@
+patient_ref,age,presenting_complaint,diagnosis_category,severity,requires_isolation,requires_monitoring_level,arrival_mode
+PT-10004,21,acute mi,acute_mi,critical,False,icu,ambulance
+PT-10005,15,stroke suspected,stroke_suspected,critical,False,icu,ambulance
+PT-10007,18,sepsis unstable,sepsis_unstable,critical,False,icu,ambulance
+PT-10009,84,major trauma,major_trauma,critical,False,icu,ambulance
+PT-10013,91,pneumonia respiratory distress,pneumonia_respiratory_distress,high,True,standard,ambulance
+PT-10014,80,suspected tb,suspected_tb,high,True,standard,walk_in
+PT-10018,53,copd exacerbation,copd_exacerbation,high,False,standard,ambulance
+PT-10022,80,moderate trauma fall,moderate_trauma_fall,moderate,False,standard,ambulance
+PT-10025,71,appendicitis suspected,appendicitis_suspected,moderate,False,standard,walk_in
+PT-10026,74,asthma exacerbation,asthma_exacerbation,moderate,False,standard,walk_in
+PT-10027,91,allergic reaction moderate,allergic_reaction_moderate,moderate,False,standard,walk_in
+PT-10030,91,fracture closed,fracture_closed,minor,False,none,walk_in
+PT-10033,86,laceration minor,laceration_minor,minor,False,none,walk_in
+PT-10036,18,migraine,migraine,minor,False,none,walk_in
+PT-10038,59,viral uri,viral_uri,minor,False,none,walk_in
+PT-10039,62,gastroenteritis,gastroenteritis,minor,False,none,walk_in
+PT-10041,37,transfer cardiac stepdown,transfer_cardiac_stepdown,high,False,standard,transfer
+PT-10042,68,transfer post surgical,transfer_post_surgical,moderate,False,standard,transfer
+PT-10045,84,psychiatric crisis stable,psychiatric_crisis_stable,moderate,False,none,walk_in
+PT-10047,85,dehydration elderly,dehydration_elderly,moderate,False,standard,ambulance
+PT-10050,23,acute mi,acute_mi,critical,False,icu,ambulance
+PT-10051,24,stroke suspected,stroke_suspected,critical,False,icu,ambulance
+PT-10054,80,sepsis unstable,sepsis_unstable,critical,False,icu,ambulance
+PT-10055,66,major trauma,major_trauma,critical,False,icu,ambulance
+PT-10058,18,pneumonia respiratory distress,pneumonia_respiratory_distress,high,True,standard,ambulance
+PT-10060,43,suspected tb,suspected_tb,high,True,standard,walk_in
+PT-10062,11,copd exacerbation,copd_exacerbation,high,False,standard,ambulance
+PT-10063,76,moderate trauma fall,moderate_trauma_fall,moderate,False,standard,ambulance
+PT-10067,14,appendicitis suspected,appendicitis_suspected,moderate,False,standard,walk_in
+PT-10069,12,asthma exacerbation,asthma_exacerbation,moderate,False,standard,walk_in
+PT-10073,20,allergic reaction moderate,allergic_reaction_moderate,moderate,False,standard,walk_in
+PT-10075,74,fracture closed,fracture_closed,minor,False,none,walk_in
+PT-10079,37,laceration minor,laceration_minor,minor,False,none,walk_in
+PT-10081,31,migraine,migraine,minor,False,none,walk_in
+PT-10085,43,viral uri,viral_uri,minor,False,none,walk_in
+PT-10088,89,gastroenteritis,gastroenteritis,minor,False,none,walk_in
+PT-10092,60,transfer cardiac stepdown,transfer_cardiac_stepdown,high,False,standard,transfer
+PT-10094,19,transfer post surgical,transfer_post_surgical,moderate,False,standard,transfer
+PT-10095,32,psychiatric crisis stable,psychiatric_crisis_stable,moderate,False,none,walk_in
+PT-10096,47,dehydration elderly,dehydration_elderly,moderate,False,standard,ambulance
+PT-10098,79,acute mi,acute_mi,critical,False,icu,ambulance
+PT-10100,79,stroke suspected,stroke_suspected,critical,False,icu,ambulance
+PT-10101,4,sepsis unstable,sepsis_unstable,critical,False,icu,ambulance
+PT-10102,84,major trauma,major_trauma,critical,False,icu,ambulance
+PT-10103,33,pneumonia respiratory distress,pneumonia_respiratory_distress,high,True,standard,ambulance
+PT-10106,8,suspected tb,suspected_tb,high,True,standard,walk_in
+PT-10108,13,copd exacerbation,copd_exacerbation,high,False,standard,ambulance
+PT-10112,39,moderate trauma fall,moderate_trauma_fall,moderate,False,standard,ambulance
+PT-10114,31,appendicitis suspected,appendicitis_suspected,moderate,False,standard,walk_in
+PT-10118,77,asthma exacerbation,asthma_exacerbation,moderate,False,standard,walk_in
+PT-10122,35,allergic reaction moderate,allergic_reaction_moderate,moderate,False,standard,walk_in
+PT-10124,56,fracture closed,fracture_closed,minor,False,none,walk_in
+PT-10125,16,laceration minor,laceration_minor,minor,False,none,walk_in
+PT-10129,88,migraine,migraine,minor,False,none,walk_in
+PT-10133,49,viral uri,viral_uri,minor,False,none,walk_in
+PT-10137,56,gastroenteritis,gastroenteritis,minor,False,none,walk_in
+PT-10138,10,transfer cardiac stepdown,transfer_cardiac_stepdown,high,False,standard,transfer
+PT-10142,11,transfer post surgical,transfer_post_surgical,moderate,False,standard,transfer
+PT-10143,47,psychiatric crisis stable,psychiatric_crisis_stable,moderate,False,none,walk_in
+PT-10145,35,dehydration elderly,dehydration_elderly,moderate,False,standard,ambulance
+PT-10146,20,multi_vehicle_collision_trauma,mass_casualty_trauma,critical,False,icu,mass_casualty
+PT-10147,29,multi_vehicle_collision_trauma,mass_casualty_trauma,critical,False,icu,mass_casualty
+PT-10148,38,multi_vehicle_collision_trauma,mass_casualty_trauma,high,False,standard,mass_casualty
+PT-10149,47,multi_vehicle_collision_trauma,mass_casualty_trauma,high,False,standard,mass_casualty
+PT-10150,56,multi_vehicle_collision_trauma,mass_casualty_trauma,moderate,False,standard,mass_casualty
+PT-10151,65,multi_vehicle_collision_trauma,mass_casualty_trauma,moderate,False,standard,mass_casualty
+PT-10152,74,multi_vehicle_collision_trauma,mass_casualty_trauma,minor,False,none,mass_casualty
+PT-10153,83,multi_vehicle_collision_trauma,mass_casualty_trauma,minor,False,none,mass_casualty

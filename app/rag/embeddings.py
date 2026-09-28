@@ -1,11 +1,9 @@
 """Embedding client interface.
 
-Default (per plan Section 6) is Azure OpenAI / OpenAI `text-embedding-3-small`, used when
-`AZURE_OPENAI_API_KEY`/`OPENAI_API_KEY` is configured. With no key configured — the case in
-this dev sandbox, which has no live credentials and no verified internet access to a model
-hub — this falls back to a deterministic local hashing-trick embedding so RAG ingestion,
-retrieval, and tests all run fully offline. Swap in a real `sentence-transformers` model
-here instead if one is available; the interface (`EmbeddingClient.embed`) doesn't change.
+Provider priority (see app/config.py): Google AI Studio > Azure OpenAI / OpenAI
+`text-embedding-3-small` (plan Section 6's original default) > a deterministic local
+hashing-trick fallback used only when no provider is configured, so RAG ingestion,
+retrieval, and tests still run fully offline in that case.
 """
 
 import hashlib
@@ -49,6 +47,20 @@ class LocalHashingEmbeddingClient(EmbeddingClient):
         return [self._embed_one(t) for t in texts]
 
 
+class GoogleAIEmbeddingClient(EmbeddingClient):
+    def __init__(self):
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings  # optional dep, lazy
+
+        settings = get_settings()
+        self._client = GoogleGenerativeAIEmbeddings(
+            model=settings.google_embedding_model,
+            google_api_key=settings.google_api_key,
+        )
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        return self._client.embed_documents(texts)
+
+
 class AzureOpenAIEmbeddingClient(EmbeddingClient):
     def __init__(self):
         from langchain_openai import AzureOpenAIEmbeddings  # optional dep, imported lazily
@@ -66,6 +78,8 @@ class AzureOpenAIEmbeddingClient(EmbeddingClient):
 
 def get_embedding_client() -> EmbeddingClient:
     settings = get_settings()
+    if settings.google_api_key:
+        return GoogleAIEmbeddingClient()
     if settings.azure_openai_api_key and settings.azure_openai_endpoint:
         return AzureOpenAIEmbeddingClient()
     return LocalHashingEmbeddingClient()

@@ -1,19 +1,55 @@
 # Compliance Rules
 
-Effective date: 2026-01-01
+Policy ID: COMP-RULE-01
+Effective date: 2026-01-15
+Owner: Compliance and Risk Management
 
 ## 1.0 Mass-casualty activation
 
-Multi-patient incidents trigger parallel triage processing with priority ordering by acuity, not
-arrival order. When a mass-casualty request is detected (multiple patients submitted under a
-single incident, or `arrival_mode` of `mass_casualty`), the workflow must process each patient
-concurrently and record a complete, independent audit trail for every patient in the batch — no
-patient's processing may be skipped or deferred because of batch size.
+When an incident presents more patients than can be processed sequentially within normal
+turnaround targets, mass-casualty activation may be declared by the attending or the on-call
+administrator. Activation triggers parallel triage processing with priority ordering by acuity,
+not arrival order, coordinated with Section 4 of the Emergency Protocols. Activation status,
+the declaring individual, and the timestamp are recorded as the first entry in the incident's
+audit trail.
 
-## 2.0 Audit and grounding requirements
+## 2. De-identification and data handling
 
-Every agent recommendation must carry at least one policy citation grounding its decision. A
-recommendation issued without a supporting citation above the similarity floor must be marked
-`policy_grounded: false` and have its confidence score lowered accordingly, rather than being
-presented as policy-backed. This rule exists to keep the system's compliance guarantees
-enforceable in code rather than aspirational.
+### 2.1 Minimum necessary data
+
+Automated placement and staffing decisions operate on de-identified operational fields only —
+synthetic patient reference, age, diagnosis category, severity, isolation flag, and monitoring
+level. Direct identifiers (name, national identifier, insurance or payer identifiers, contact
+information) are out of scope for this system and must not be introduced into its data model.
+
+### 2.2 Access control
+
+Access to placement, staffing, and audit records is role-based. Reviewers acting on the human
+approval gate see only the fields required to make an approval decision.
+
+## 3. Audit and record retention
+
+### 3.1 Append-only audit trail
+
+Every automated or human decision affecting placement, staffing, or routing is logged in an
+audit trail that permits new entries but not modification or deletion of prior entries. This
+applies at the system access-control level, not only as an application-level convention.
+
+### 3.2 Retention
+
+Audit records are retained for the period required by applicable recordkeeping regulation and are
+not purged as part of routine data cleanup.
+
+## 4. Human review requirements
+
+A decision must be routed to human review when any of the following hold: the system's confidence
+score falls below the defined threshold, two or more agents produce conflicting recommendations,
+the case is flagged critical, or a policy conflict is detected during consolidation. This
+requirement cannot be bypassed by a downstream process; it is enforced at the point confidence is
+evaluated.
+
+## 5. Documentation standards
+
+Every automated recommendation must cite the specific policy section that grounds it. A
+recommendation with no supporting citation is treated as ungrounded and its confidence score is
+lowered accordingly rather than presented as a confident decision.

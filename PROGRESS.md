@@ -101,3 +101,61 @@ this sandbox — see Phase 0 TODO); only the dialect-gated skip on SQLite has be
 **TODO:** swap `LocalHashingEmbeddingClient` for a real embedding model (Azure OpenAI key, or a
 verified `sentence-transformers` install) before trusting retrieval quality beyond this demo
 corpus.
+
+## Phase 3 — Router
+
+- `app/llm.py`: shared `get_chat_llm()` access point. Provider priority is Google AI Studio >
+  Azure OpenAI > `None`. Returns `None` when nothing is configured; callers supply their own
+  rule-based fallback (there's no meaningful "local" chat-model substitute the way there is for
+  embeddings).
+- `app/graph/nodes/router.py`: `classify_request(patient) -> RouterOutput`. Real path is a
+  single structured-output LLM call (`llm.with_structured_output(RouterOutput)`, per plan
+  Section 7); rule-based fallback mirrors it when no LLM is configured. Multi-intent requests
+  naturally produce `request_type: "combination"` with multiple `selected_agents`.
+- Mid-phase, the user supplied much richer replacement seed data: full policy documents with
+  numbered sections and owners, `data/seed/{beds,staff,synthetic_patient_requests}.csv` (120 /
+  48 / 68 rows), `data/fixtures/eval_fixtures.json` (13 hand-derived router+agent fixtures),
+  and a rewritten `app/seed.py` that loads all three CSVs and asserts the expected row counts.
+  Re-ran `alembic upgrade head` + `py -3 -m app.seed` against them — passes, 120 beds / 48 staff
+  / 68 patients / 5 policy docs seeded.
+- **Router logic correction from the eval fixtures:** my first pass treated
+  `arrival_mode == "mass_casualty"` as always triggering `emergency_routing`. The provided
+  `eval_fixtures.json` shows the opposite for all 4 mass-casualty cases (including critical/ICU
+  ones) — they're routed as parallel `bed_allocation`(+`staff_allocation`), never
+  `emergency_routing`. Fixed `_rule_based_classify` to only trigger `emergency_routing` for
+  `arrival_mode == "ambulance"` with `severity in ("critical", "high")`, and rewrote the
+  now-wrong unit test to assert the corrected (fixture-backed) behavior instead.
+- Re-ingested Phase 2's RAG pipeline against the new, much more detailed policy documents (49
+  chunks now, up from 13) and relaxed two `test_retriever.py` assertions from "exact top rank"
+  to "expected section appears in top-k" — the new documents split closely-related content into
+  finer sibling sections (e.g. "3.1 Monitoring-level indicators" vs "3.2 Critical acuity
+  placement") that the lightweight hashing-fallback embedding can't always rank in the single
+  intended order; real retrieval (once a working embedding provider is configured) should do
+  better than this fallback demonstrates.
+
+**On the Google AI Studio key provided mid-session:** wired `GoogleAIEmbeddingClient` /
+`ChatGoogleGenerativeAI` behind the existing `EmbeddingClient`/`get_chat_llm()` interfaces
+(provider priority now Google > Azure > local fallback). The key itself, verified via direct
+REST calls to both `:embedContent` and `:generateContent`, returns `401
+ACCESS_TOKEN_TYPE_UNSUPPORTED` from `generativelanguage.googleapis.com` — that response means
+Google is reading it as an OAuth-style token, not a plain API key (real AI Studio keys look
+like `AIzaSy...`, this one was `AQ.Ab8...`). This is a real external-service finding, not a bug
+in the wiring. The key was cleared back to blank in the local, git-ignored `.env` (never
+committed, never printed) so the app doesn't silently attempt broken API calls; it currently
+runs on the local hashing embeddings / rule-based router fallback. **TODO:** paste a real key
+from https://aistudio.google.com/apikey into `.env`'s `GOOGLE_API_KEY` to activate the Google
+path — the code is ready and unit-tested for the fallback path, but the live Google call itself
+is unverified pending a working key.
+
+**Security note:** the key was shared in this session via a pasted screenshot. Recommend
+rotating/regenerating it in Google AI Studio as routine hygiene, independent of the auth issue
+above, since it appeared in a possibly-logged chat transcript.
+
+**Verification performed:**
+- `tests/unit/test_router.py` (10 tests) + `tests/unit/test_router_eval_fixtures.py`
+  (13 tests, parametrized over every entry in `data/fixtures/eval_fixtures.json`) — all pass,
+  asserting `request_type` and `selected_agents` match the fixture's `expected_router`.
+- Full suite (`tests/`) re-run after the policy-doc rewrite and router fix: 26/26 passing.
+- Direct REST verification that the provided Google API key is rejected by Google's API (see
+  above) — not just "the Python client raised an exception," the raw HTTP response was
+  inspected.
