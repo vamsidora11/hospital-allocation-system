@@ -52,3 +52,52 @@
 
 **TODO:** the Postgres-only append-only grant is untested against real Postgres (no Docker in
 this sandbox — see Phase 0 TODO); only the dialect-gated skip on SQLite has been verified.
+
+## Phase 2 — RAG engine
+
+- Wrote the 5 seed policy documents in `data/policies/` (bed allocation, staffing, emergency
+  protocols, infection control, compliance) with real section headings matching the plan's
+  example sections (e.g. "3.2 Critical acuity placement", "5.1 ICU nurse ratios").
+- `app/rag/chunking.py`: markdown-aware recursive splitter — splits on `##`/`###` headings
+  first so a chunk never straddles two sections, then recursively splits any oversized section
+  (~500 tokens / ~50 token overlap, approximated as 4 chars/token since no tokenizer dependency
+  was added).
+- `app/rag/embeddings.py`: `EmbeddingClient` interface. Default path is Azure OpenAI
+  `text-embedding-3-small` (lazy-imports `langchain_openai`, used only if
+  `AZURE_OPENAI_API_KEY`/`AZURE_OPENAI_ENDPOINT` are set). **No real key is available in this
+  sandbox**, so the active path is `LocalHashingEmbeddingClient` — a deterministic
+  feature-hashing bag-of-words embedding (pure Python + hashlib, no torch/model download). This
+  substitutes for the plan's suggested `sentence-transformers` fallback because a large model
+  download wasn't something I could verify would succeed offline in this sandbox; ranking
+  quality is good enough for the seeded policy corpus (verified by the unit tests) but is
+  weaker than a trained model — swap in `sentence-transformers` or a real key before relying on
+  this for production relevance.
+- `app/rag/vector_store.py`: Chroma persistent client, single `policy_chunks` collection,
+  cosine space.
+- `app/rag/ingest.py`: loads each policy doc, chunks + embeds + upserts into Chroma, and writes
+  matching `policy_chunks` rows (`chroma_id` linking the two). Domain assigned per filename;
+  `infection_control_standards.md` is its own `infection_control` domain (cross-cutting —
+  folded into `bed` and `staffing` queries via `DOMAIN_EXPANSION` in `retriever.py`) since the
+  demo UI's mock policy library treats infection-control policy as shared between those two
+  agents rather than a strict 4-way partition.
+- `app/rag/retriever.py`: top-k (default 4) domain-filtered similarity search, converts Chroma
+  cosine distance to a similarity score, truncates excerpts to ≤2 sentences, exposes
+  `GROUNDING_FLOOR = 0.55` for agents (Phase 4) to consume.
+- `app/api/policy.py`: `POST /policy/search {"query", "domain", "k"}`, wired into `app/main.py`.
+
+**Verification performed:**
+- `py -3 -m app.rag.ingest` — ingested 13 chunks across the 5 policy docs into a fresh
+  `.chroma/` directory.
+- Direct call to `retrieve("critical patient needs ICU level monitoring", domain="bed")` —
+  correctly ranks "Bed allocation policy / 3.2 Critical acuity placement" first.
+- Live end-to-end check: ran `uvicorn`, `POST /policy/search` with the same query → `200`, top
+  result `{"policy_name": "Bed allocation policy", "section": "3.2 Critical acuity
+  placement", ...}`.
+- `tests/unit/test_retriever.py` (3 tests, all passing): known bed-domain query hits the
+  expected section, known staffing-domain query hits the expected section, and domain
+  filtering excludes unrelated policies. Uses an ephemeral in-memory Chroma collection built
+  from the real `data/policies/*.md` files, independent of the persistent store singleton.
+
+**TODO:** swap `LocalHashingEmbeddingClient` for a real embedding model (Azure OpenAI key, or a
+verified `sentence-transformers` install) before trusting retrieval quality beyond this demo
+corpus.
