@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hospital Resource Allocation — Command View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0E1A2B;
+    --panel: #142234;
+    --panel-raised: #182A40;
+    --line: #24384E;
+    --line-soft: #1B2D42;
+    --text: #E7EDF4;
+    --text-dim: #93A6BC;
+    --text-faint: #5E7590;
+    --teal: #34D2AE;
+    --teal-dim: #1B7A63;
+    --amber: #F0A94E;
+    --amber-dim: #8A5F1F;
+    --red: #E8635F;
+    --red-dim: #8C2E2C;
+    --font-serif: 'Newsreader', Georgia, serif;
+    --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:var(--bg); color:var(--text); font-family:var(--font-sans); font-size:14px; line-height:1.5;}
+  button{font-family:var(--font-sans); cursor:pointer;}
+  input,select{font-family:var(--font-sans); font-size:13px;}
+  ::selection{background:var(--teal-dim); color:#fff;}
+
+  .app{max-width:1400px; margin:0 auto; padding:0 20px 40px;}
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    padding:28px 0 18px; border-bottom:1px solid var(--line); gap:24px; flex-wrap:wrap;
+  }
+  .topbar h1{font-family:var(--font-serif); font-weight:500; font-size:26px; letter-spacing:0.2px;}
+  .topbar .sub{color:var(--text-dim); font-size:13px; margin-top:4px;}
+  .stat-row{display:flex; gap:28px; flex-wrap:wrap; align-items:flex-end;}
+  .gauge{width:132px;}
+  .gauge .g-label{display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-bottom:5px;}
+  .gauge .g-label span:last-child{font-family:var(--font-mono); color:var(--text);}
+  .gauge .g-track{height:5px; background:var(--line); border-radius:2px; overflow:hidden;}
+  .gauge .g-fill{height:100%; border-radius:2px;}
+  .fill-ok{background:var(--teal);}
+  .fill-warn{background:var(--amber);}
+  .fill-crit{background:var(--red);}
+  .stat-block{text-align:right;}
+  .stat-block .s-label{font-size:11px; color:var(--text-dim);}
+  .stat-block .s-value{font-family:var(--font-mono); font-size:20px; margin-top:2px;}
+  .status-line{font-size:11px; color:var(--amber); margin-top:4px;}
+
+  /* ---------- Grid ---------- */
+  .grid{
+    display:grid; grid-template-columns: 300px 1fr 320px; gap:1px; background:var(--line);
+    margin-top:1px; min-height:640px;
+  }
+  .col{background:var(--bg); padding:18px 18px 28px; overflow:hidden;}
+  .col h2{font-family:var(--font-serif); font-weight:500; font-size:16px; margin-bottom:14px;}
+  .col-scroll{max-height:760px; overflow-y:auto;}
+
+  @media(max-width:980px){
+    .grid{grid-template-columns:1fr;}
+    .stat-row{gap:16px;}
+  }
+
+  /* ---------- Intake column ---------- */
+  .scenario-btn{
+    display:flex; gap:10px; width:100%; text-align:left; background:transparent;
+    border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin-bottom:8px;
+    color:var(--text); transition:border-color .15s, background .15s;
+  }
+  .scenario-btn:hover{border-color:var(--teal-dim); background:var(--panel);}
+  .scenario-btn .dot{width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0;}
+  .scenario-btn .sc-title{font-size:13px; font-weight:500;}
+  .scenario-btn .sc-sub{font-size:12px; color:var(--text-dim); margin-top:2px;}
+
+  details.custom-form{margin-top:16px; border-top:1px solid var(--line); padding-top:14px;}
+  details.custom-form summary{cursor:pointer; font-size:13px; color:var(--text-dim); list-style:none;}
+  details.custom-form summary::-webkit-details-marker{display:none;}
+  details.custom-form summary:before{content:"+ "; color:var(--teal);}
+  details.custom-form[open] summary:before{content:"– ";}
+  .field{margin-top:10px;}
+  .field label{display:block; font-size:11px; color:var(--text-dim); margin-bottom:4px;}
+  .field input[type=number], .field select{
+    width:100%; background:transparent; border:none; border-bottom:1px solid var(--line);
+    color:var(--text); padding:6px 2px; border-radius:0;
+  }
+  .field input:focus, .field select:focus{outline:none; border-bottom-color:var(--teal);}
+  .field-check{display:flex; align-items:center; gap:8px; margin-top:12px;}
+  .field-check label{font-size:12px; color:var(--text-dim);}
+  .submit-btn{
+    margin-top:14px; width:100%; background:var(--teal-dim); border:1px solid var(--teal);
+    color:#eafff9; padding:9px; border-radius:var(--radius); font-size:13px; font-weight:500;
+  }
+  .submit-btn:hover{background:var(--teal); color:#04231c;}
+  .err{font-size:11px; color:var(--red); margin-top:6px; display:none;}
+
+  .queue{margin-top:18px;}
+  .queue h3{font-size:11px; color:var(--text-dim); margin-bottom:8px; font-weight:500;}
+  .q-item{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    padding:8px 10px; border:1px solid transparent; border-left:2px solid var(--line-soft);
+    cursor:pointer; margin-bottom:2px; border-radius:0 var(--radius) var(--radius) 0;
+  }
+  .q-item:hover{background:var(--panel);}
+  .q-item.selected{border-left-color:var(--teal); background:var(--panel);}
+  .q-item .q-id{font-family:var(--font-mono); font-size:12px;}
+  .q-item .q-meta{font-size:11px; color:var(--text-faint);}
+  .pill{font-size:10px; padding:2px 7px; border-radius:9px; white-space:nowrap;}
+  .pill-run{background:var(--panel-raised); color:var(--teal); border:1px solid var(--teal-dim);}
+  .pill-wait{background:var(--panel-raised); color:var(--amber); border:1px solid var(--amber-dim);}
+  .pill-done{background:var(--panel-raised); color:var(--text-dim); border:1px solid var(--line);}
+  .pill-rejected{background:var(--panel-raised); color:var(--red); border:1px solid var(--red-dim);}
+
+  /* ---------- Pipeline column ---------- */
+  .empty-state{color:var(--text-faint); font-size:13px; padding:40px 0; text-align:center;}
+  .stage{display:flex; gap:14px; padding:10px 0; border-bottom:1px solid var(--line-soft);}
+  .stage:last-child{border-bottom:none;}
+  .stage .num{
+    width:20px; height:20px; border-radius:50%; border:1px solid var(--line); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:10px; color:var(--text-faint);
+  }
+  .stage.active .num{border-color:var(--teal); color:var(--teal);}
+  .stage.done .num{background:var(--teal-dim); border-color:var(--teal-dim); color:#eafff9;}
+  .stage.skip .num{opacity:.4;}
+  .stage .s-body{flex:1;}
+  .stage .s-name{font-size:13px; font-weight:500;}
+  .stage.skip .s-name{color:var(--text-faint);}
+  .stage .s-detail{font-size:12px; color:var(--text-dim); margin-top:4px; line-height:1.55;}
+
+  .callout{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:10px 12px; margin-top:8px; font-size:12px;
+  }
+  .callout .co-row{display:flex; justify-content:space-between; margin-bottom:4px;}
+  .callout .co-row span:first-child{color:var(--text-dim);}
+  .callout .co-row span:last-child{font-family:var(--font-mono);}
+
+  .agent-cards{display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;}
+  .agent-card{
+    flex:1 1 220px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:11px 12px;
+  }
+  .agent-card .ac-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .agent-card .ac-name{font-size:12px; font-weight:500;}
+  .spinner{
+    width:11px; height:11px; border:2px solid var(--line); border-top-color:var(--teal);
+    border-radius:50%; animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .agent-card .ac-decision{font-size:13px; margin-top:2px;}
+  .agent-card .ac-reasoning{font-size:12px; color:var(--text-dim); margin-top:6px; line-height:1.5;}
+  .conf-badge{font-family:var(--font-mono); font-size:11px; padding:2px 6px; border-radius:9px;}
+  .conf-high{color:var(--teal); border:1px solid var(--teal-dim);}
+  .conf-mid{color:var(--amber); border:1px solid var(--amber-dim);}
+  .conf-low{color:var(--red); border:1px solid var(--red-dim);}
+  .citations{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;}
+  .cite-chip{
+    font-size:10px; color:var(--text-dim); background:var(--panel-raised); border:1px solid var(--line);
+    padding:2px 7px; border-radius:9px; font-family:var(--font-mono);
+  }
+
+  .conf-gauge{margin-top:8px;}
+  .conf-gauge .cg-row{display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px;}
+  .conf-gauge .cg-track{position:relative; height:6px; background:var(--line); border-radius:3px;}
+  .conf-gauge .cg-fill{height:100%; border-radius:3px;}
+  .conf-gauge .cg-threshold{position:absolute; top:-3px; width:2px; height:12px; background:var(--text-dim);}
+
+  .approval-box{
+    margin-top:10px; background:var(--panel); border:1px solid var(--amber-dim); border-radius:var(--radius); padding:12px;
+  }
+  .approval-box .ab-reason{font-size:12px; color:var(--amber); margin-bottom:10px;}
+  .approval-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .ab-btn{
+    flex:1 1 auto; padding:8px 10px; border-radius:var(--radius); font-size:12px; font-weight:500;
+    border:1px solid var(--line); background:transparent; color:var(--text);
+  }
+  .ab-btn.approve{border-color:var(--teal-dim); color:var(--teal);}
+  .ab-btn.approve:hover{background:var(--teal-dim); color:#eafff9;}
+  .ab-btn.reject{border-color:var(--red-dim); color:var(--red);}
+  .ab-btn.reject:hover{background:var(--red-dim); color:#fff;}
+  .ab-btn.override{border-color:var(--amber-dim); color:var(--amber);}
+  .ab-btn.override:hover{background:var(--amber-dim); color:#2a1c04;}
+  .ab-btn.info:hover{background:var(--panel-raised);}
+
+  .final-card{
+    margin-top:12px; border:1px solid var(--line); border-radius:var(--radius); padding:16px; background:var(--panel);
+  }
+  .final-card.rejected{border-color:var(--red-dim);}
+  .final-card .fc-headline{font-family:var(--font-serif); font-size:19px; font-weight:500;}
+  .final-card .fc-meta{display:flex; gap:16px; margin-top:8px; font-family:var(--font-mono); font-size:11px; color:var(--text-dim); flex-wrap:wrap;}
+  .final-card .fc-reasoning{font-size:13px; color:var(--text-dim); margin-top:10px; line-height:1.6;}
+
+  .batch-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:8px; margin-top:10px;}
+  .batch-card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:9px 10px;}
+  .batch-card .bc-id{font-family:var(--font-mono); font-size:11px; color:var(--text-dim);}
+  .batch-card .bc-outcome{font-size:12px; margin-top:5px; min-height:16px;}
+  .batch-summary{display:flex; gap:18px; margin-top:12px; flex-wrap:wrap;}
+  .batch-summary div{font-size:12px;}
+  .batch-summary span{display:block; font-family:var(--font-mono); font-size:18px; margin-top:2px;}
+
+  /* ---------- Audit column ---------- */
+  .audit-row{border-left:2px solid var(--line-soft); padding:6px 0 6px 10px; margin-bottom:2px;}
+  .audit-row .a-top{display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; color:var(--text-faint);}
+  .audit-row .a-state{font-size:12px; margin-top:2px;}
+  .audit-row .a-detail{font-size:11px; color:var(--text-dim); margin-top:2px; line-height:1.5;}
+  .audit-row.teal{border-left-color:var(--teal-dim);}
+  .audit-row.amber{border-left-color:var(--amber-dim);}
+  .audit-row.red{border-left-color:var(--red-dim);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div>
+      <h1>Hospital resource allocation</h1>
+      <div class="sub">Multi-agent command view — router, allocation agents, policy grounding, human approval</div>
+    </div>
+    <div class="stat-row">
+      <div class="gauge" id="gauge-icu">
+        <div class="g-label"><span>ICU</span><span class="g-val">78%</span></div>
+        <div class="g-track"><div class="g-fill fill-warn" style="width:78%"></div></div>
+      </div>
+      <div class="gauge" id="gauge-ward">
+        <div class="g-label"><span>General ward</span><span class="g-val">65%</span></div>
+        <div class="g-track"><div class="g-fill fill-ok" style="width:65%"></div></div>
+      </div>
+      <div class="gauge" id="gauge-iso">
+        <div class="g-label"><span>Isolation</span><span class="g-val">40%</span></div>
+        <div class="g-track"><div class="g-fill fill-ok" style="width:40%"></div></div>
+      </div>
+      <div class="stat-block">
+        <div class="s-label">Avg decision time</div>
+        <div class="s-value" id="stat-avg-time">—</div>
+      </div>
+      <div class="stat-block">
+        <div class="s-label">Active agents</div>
+        <div class="s-value" id="stat-active-agents">0</div>
+      </div>
+    </div>
+  </div>
+  <div class="status-line" id="capacity-status" style="text-align:right; display:none;"></div>
+
+  <div class="grid">
+
+    <!-- INTAKE -->
+    <section class="col">
+      <h2>New request</h2>
+
+      <div id="scenario-list"></div>
+
+      <details class="custom-form">
+        <summary>Build a custom request</summary>
+        <div class="field">
+          <label for="f-age">Patient age</label>
+          <input type="number" id="f-age" min="0" max="110" placeholder="e.g. 54">
+        </div>
+        <div class="field">
+          <label for="f-complaint">Presenting complaint</label>
+          <input type="text" id="f-complaint" placeholder="e.g. chest pain, fever">
+        </div>
+        <div class="field">
+          <label for="f-severity">Severity</label>
+          <select id="f-severity">
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="moderate" selected>Moderate</option>
+            <option value="minor">Minor</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-monitoring">Monitoring level needed</label>
+          <select id="f-monitoring">
+            <option value="icu">ICU-level</option>
+            <option value="standard" selected>Standard</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-arrival">Arrival mode</label>
+          <select id="f-arrival">
+            <option value="walk_in">Walk-in</option>
+            <option value="ambulance" selected>Ambulance</option>
+            <option value="transfer">Transfer</option>
+          </select>
+        </div>
+        <div class="field-check">
+          <input type="checkbox" id="f-isolation">
+          <label for="f-isolation">Requires isolation</label>
+        </div>
+        <button class="submit-btn" id="submit-custom">Submit request</button>
+        <div class="err" id="custom-err">Enter a patient age and complaint first.</div>
+      </details>
+
+      <div class="queue">
+        <h3>Request queue</h3>
+        <div id="queue-list"></div>
+      </div>
+    </section>
+
+    <!-- PIPELINE -->
+    <section class="col col-scroll">
+      <h2>Workflow</h2>
+      <div id="pipeline-view"><div class="empty-state">Select or submit a request to watch it move through the workflow.</div></div>
+    </section>
+
+    <!-- AUDIT -->
+    <section class="col col-scroll">
+      <h2>Audit trail</h2>
+      <div id="audit-view"><div class="empty-state">Entries appear here as requests move through each state.</div></div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+(function(){
+
+  /* ---------------- policy library (mock RAG corpus) ---------------- */
+  var POLICY_LIBRARY = {
+    bed: [
+      {name:'Bed allocation policy', section:'3.2 Critical acuity placement', excerpt:'Patients presenting with critical acuity indicators are placed in monitored ICU beds ahead of ward assignment.'},
+      {name:'Bed allocation policy', section:'4.1 Isolation criteria', excerpt:'Suspected or confirmed infectious status requires isolation-room placement regardless of ward capacity.'},
+      {name:'Bed allocation policy', section:'2.4 General ward defaults', excerpt:'Stable patients without elevated monitoring needs default to general ward placement.'},
+      {name:'Infection control standards', section:'1.3 Respiratory isolation', excerpt:'Respiratory distress with suspected infectious origin requires a negative-pressure isolation room where available.'}
+    ],
+    staff: [
+      {name:'Staff scheduling policy', section:'5.1 ICU nurse ratios', excerpt:'ICU beds require a maximum 1:2 nurse-to-patient ratio per active shift.'},
+      {name:'Staff scheduling policy', section:'5.3 Specialist matching', excerpt:'Cases with a confirmed specialty diagnosis are matched to an on-shift specialist before general staff.'},
+      {name:'Infection control standards', section:'2.2 Isolation staffing', excerpt:'Isolation-room patients require a nurse credentialed in respiratory or infectious care for the duration of stay.'},
+      {name:'Staff scheduling policy', section:'6.0 Coverage shortfalls', excerpt:'When credentialed coverage is unavailable for the current shift, escalate to human review before assignment.'}
+    ],
+    emergency: [
+      {name:'Emergency protocols', section:'1.1 Priority-1 criteria', excerpt:'Cardiac, respiratory, or trauma presentations with unstable vitals are classified Priority 1 and accepted regardless of load.'},
+      {name:'Emergency protocols', section:'2.3 Diversion thresholds', excerpt:'Minor-acuity cases may be diverted to urgent care when emergency department load exceeds capacity thresholds.'},
+      {name:'Emergency protocols', section:'3.0 Regional transfer', excerpt:'Cases requiring specialist capability unavailable on-site are transferred to the designated regional facility.'},
+      {name:'Compliance rules', section:'1.0 Mass-casualty activation', excerpt:'Multi-patient incidents trigger parallel triage processing with priority ordering by acuity, not arrival order.'}
+    ]
+  };
+
+  function pickCitations(domain, n){
+    var pool = POLICY_LIBRARY[domain].slice();
+    var out = [];
+    for(var i=0;i<n && pool.length;i++){
+      var idx = Math.floor(Math.random()*pool.length);
+      var item = pool.splice(idx,1)[0];
+      out.push({
+        citation_id: domain.toUpperCase()+'-'+Math.floor(100+Math.random()*900),
+        policy_name: item.name, section: item.section, excerpt: item.excerpt,
+        similarity_score: +(0.80 + Math.random()*0.15).toFixed(2)
+      });
+    }
+    return out;
+  }
+
+  /* ---------------- scenario presets ---------------- */
+  function patient(over){
+    return Object.assign({
+      ref: 'PT-'+Math.floor(10000+Math.random()*89999),
+      age: 40, complaint: '', severity: 'moderate', isolation: false,
+      monitoring: 'standard', arrival: 'walk_in'
+    }, over);
+  }
+
+  var SCENARIOS = [
+    {
+      key:'cardiac', color:'var(--red)', title:'Acute cardiac — critical',
+      sub:'65y, suspected MI, ambulance arrival',
+      patients:[ patient({age:65, complaint:'acute myocardial infarction', severity:'critical', monitoring:'icu', arrival:'ambulance'}) ]
+    },
+    {
+      key:'pneumonia', color:'var(--amber)', title:'Pneumonia with isolation need',
+      sub:'48y, respiratory distress, infectious',
+      patients:[ patient({age:48, complaint:'pneumonia, respiratory distress', severity:'high', isolation:true, monitoring:'standard', arrival:'walk_in'}) ]
+    },
+    {
+      key:'ambiguous', color:'var(--amber)', title:'Ambiguous placement — fall',
+      sub:'71y, comorbidities, contested bed match',
+      patients:[ patient({age:71, complaint:'fall with comorbid cardiac history', severity:'moderate', isolation:false, monitoring:'standard', arrival:'ambulance'}) ]
+    },
+    {
+      key:'mass', color:'var(--teal)', title:'Mass casualty — 8 patients',
+      sub:'Multi-vehicle collision, parallel intake',
+      patients:(function(){
+        var sev = ['critical','critical','high','high','moderate','moderate','minor','minor'];
+        return sev.map(function(s,i){
+          return patient({age:22+i*7, complaint:'multi-vehicle collision trauma', severity:s,
+            monitoring: s==='critical' ? 'icu' : (s==='minor'?'none':'standard'),
+            arrival:'ambulance'});
+        });
+      })()
+    }
+  ];
+
+  /* ---------------- state ---------------- */
+  var requests = [];
+  var auditEntries = [];
+  var selectedId = null;
+  var decisionTimes = [];
+  var activeAgentCount = 0;
+
+  function genReqId(){ return 'REQ-'+Date.now().toString(36).toUpperCase().slice(-6); }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function fmtTime(d){
+    return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')+':'+d.getSeconds().toString().padStart(2,'0')+'.'+d.getMilliseconds().toString().padStart(3,'0');
+  }
+  function confClass(c){ return c>=0.80 ? 'conf-high' : (c>=0.70 ? 'conf-mid' : 'conf-low'); }
+  function confFillColor(c){ return c>=0.80 ? 'var(--teal)' : (c>=0.70 ? 'var(--amber)' : 'var(--red)'); }
+
+  /* ---------------- classification (mock router) ---------------- */
+  function classify(p){
+    var agents = [];
+    var type = 'bed_allocation';
+    if(p.arrival === 'ambulance' && (p.severity === 'critical' || p.severity === 'high')){
+      agents.push('emergency_routing');
+    }
+    agents.push('bed_allocation');
+    if(p.isolation || p.severity === 'critical' || p.monitoring === 'icu'){
+      agents.push('staff_allocation');
+    }
+    agents = agents.filter(function(a,i){ return agents.indexOf(a)===i; });
+    type = agents.length > 1 ? 'combination' : agents[0];
+    var conf = 0.90 + Math.random()*0.07;
+    var reasoning = 'Request classified from severity (' + p.severity + '), monitoring need (' + p.monitoring + '), and arrival mode (' + p.arrival + ').';
+    return { request_type: type, selected_agents: agents, routing_reasoning: reasoning, confidence_score: +conf.toFixed(2) };
+  }
+
+  /* ---------------- agent decision logic (mock) ---------------- */
+  function bedAgent(p, forceConflict){
+    var bedType;
+    if(p.severity === 'critical' || p.monitoring === 'icu') bedType = 'ICU';
+    else if(p.isolation) bedType = 'Isolation room';
+    else bedType = 'General ward';
+    var conf = forceConflict ? (0.55 + Math.random()*0.08) : (0.84 + Math.random()*0.10);
+    var reasoning = bedType === 'ICU'
+      ? 'Critical acuity and ICU-level monitoring needs place this patient ahead of ward assignment.'
+      : bedType === 'Isolation room'
+      ? 'Isolation requirement overrides standard ward placement regardless of current occupancy.'
+      : 'No elevated monitoring or isolation signal; stable patients default to general ward.';
+    if(forceConflict) reasoning += ' A confirmed monitored bed is not currently available on this shift, pending staffing confirmation.';
+    return { agent_name:'bed_allocation', decision:{bed_type:bedType}, reasoning:reasoning,
+      confidence_score:+conf.toFixed(2), citations:pickCitations('bed', 2), policy_grounded:true };
+  }
+
+  function staffAgent(p, forceConflict){
+    var role = p.complaint.indexOf('cardiac') > -1 || p.complaint.indexOf('myocardial') > -1 ? 'Cardiac-credentialed nurse'
+      : p.isolation ? 'Respiratory/infectious-care nurse'
+      : p.severity === 'critical' ? 'ICU nurse (1:2 ratio)'
+      : 'General ward nurse';
+    var conf = forceConflict ? (0.52 + Math.random()*0.09) : (0.83 + Math.random()*0.10);
+    var reasoning = forceConflict
+      ? 'Requested credentialed coverage is not confirmed for the current shift; ratio compliance cannot be guaranteed without review.'
+      : 'Matched against current shift roster; staffing ratio requirement is satisfied.';
+    return { agent_name:'staff_allocation', decision:{assigned_role:role}, reasoning:reasoning,
+      confidence_score:+conf.toFixed(2), citations:pickCitations('staff', 2), policy_grounded:true };
+  }
+
+  function emergencyAgent(p){
+    var decision, priority;
+    if(p.severity === 'critical'){ decision = 'Accept patient'; priority = 1; }
+    else if(p.severity === 'high'){ decision = 'Accept patient'; priority = 2; }
+    else if(p.severity === 'minor'){ decision = 'Divert to urgent care'; priority = 4; }
+    else { decision = 'Accept patient'; priority = 3; }
+    var conf = 0.86 + Math.random()*0.09;
+    var reasoning = priority === 1
+      ? 'Unstable-vitals presentation meets Priority 1 criteria; accepted regardless of current load.'
+      : decision === 'Divert to urgent care'
+      ? 'Minor acuity with current department load above threshold supports diversion.'
+      : 'Acuity and current load support on-site acceptance at standard priority.';
+    return { agent_name:'emergency_routing', decision:{routing_decision:decision, priority_level:priority}, reasoning:reasoning,
+      confidence_score:+conf.toFixed(2), citations:pickCitations('emergency', 2), policy_grounded:true };
+  }
+
+  function runAgent(name, p, forceConflict){
+    if(name === 'bed_allocation') return bedAgent(p, forceConflict);
+    if(name === 'staff_allocation') return staffAgent(p, forceConflict);
+    return emergencyAgent(p);
+  }
+
+  /* ---------------- audit ---------------- */
+  function logAudit(reqId, state, detail, tone){
+    var entry = { reqId:reqId, state:state, detail:detail, tone:tone||'', ts:new Date() };
+    auditEntries.unshift(entry);
+    if(auditEntries.length > 200) auditEntries.pop();
+    renderAudit();
+  }
+
+  /* ---------------- rendering: scenario list & queue ---------------- */
+  function renderScenarios(){
+    var el = document.getElementById('scenario-list');
+    el.innerHTML = '';
+    SCENARIOS.forEach(function(s){
+      var btn = document.createElement('button');
+      btn.className = 'scenario-btn';
+      btn.innerHTML = '<span class="dot" style="background:'+s.color+'"></span>' +
+        '<span><span class="sc-title">'+s.title+'</span><br><span class="sc-sub">'+s.sub+'</span></span>';
+      btn.addEventListener('click', function(){ launchRequest(s.patients.map(function(p){return Object.assign({},p);})); });
+      el.appendChild(btn);
+    });
+  }
+
+  function statusPill(status){
+    if(status === 'rejected') return '<span class="pill pill-rejected">Rejected</span>';
+    if(status === 'decided') return '<span class="pill pill-done">Decided</span>';
+    if(status === 'pending_approval') return '<span class="pill pill-wait">Needs review</span>';
+    return '<span class="pill pill-run">Running</span>';
+  }
+
+  function renderQueue(){
+    var el = document.getElementById('queue-list');
+    el.innerHTML = '';
+    requests.slice().reverse().forEach(function(r){
+      var row = document.createElement('div');
+      row.className = 'q-item' + (r.id === selectedId ? ' selected' : '');
+      var label = r.patients.length > 1 ? r.patients.length + ' patients' : (r.patients[0].complaint || 'custom request');
+      row.innerHTML = '<div><div class="q-id">'+r.id+'</div><div class="q-meta">'+label+'</div></div>' + statusPill(r.status);
+      row.addEventListener('click', function(){ selectedId = r.id; render(); });
+      el.appendChild(row);
+    });
+  }
+
+  /* ---------------- rendering: pipeline ---------------- */
+  var STAGE_NAMES = ['Input validation','Request classification','Agent execution','Result consolidation','Confidence evaluation','Human approval gate','Final decision','Audit logging'];
+
+  function stageStatusClass(r, idx){
+    if(r.approvalSkipped && idx === 5) return 'skip';
+    if(idx < r.stageIndex) return 'done';
+    if(idx === r.stageIndex) return 'active';
+    return '';
+  }
+
+  function renderPipeline(){
+    var el = document.getElementById('pipeline-view');
+    var r = requests.find(function(x){ return x.id === selectedId; });
+    if(!r){ el.innerHTML = '<div class="empty-state">Select or submit a request to watch it move through the workflow.</div>'; return; }
+
+    var html = '';
+    for(var i=0;i<8;i++){
+      var cls = stageStatusClass(r, i);
+      html += '<div class="stage '+cls+'"><div class="num">'+(i+1)+'</div><div class="s-body">';
+      html += '<div class="s-name">'+STAGE_NAMES[i]+'</div>';
+
+      if(i === 0 && r.stageIndex >= 0){
+        html += '<div class="s-detail">'+r.patients.length+' patient record(s) validated against required fields and capacity constraints.</div>';
+      }
+      if(i === 1 && r.router){
+        html += '<div class="callout"><div class="co-row"><span>Request type</span><span>'+r.router.request_type+'</span></div>' +
+          '<div class="co-row"><span>Selected agents</span><span>'+r.router.selected_agents.join(', ')+'</span></div>' +
+          '<div class="co-row"><span>Confidence</span><span>'+(r.router.confidence_score*100).toFixed(0)+'%</span></div>' +
+          '<div style="color:var(--text-dim); margin-top:4px;">'+r.router.routing_reasoning+'</div></div>';
+      }
+      if(i === 2 && r.stageIndex >= 2){
+        html += renderAgentSection(r);
+      }
+      if(i === 3 && r.consolidation){
+        html += '<div class="s-detail">'+r.consolidation+'</div>';
+      }
+      if(i === 4 && r.aggregateConfidence !== undefined){
+        var pct = (r.aggregateConfidence*100).toFixed(0);
+        html += '<div class="conf-gauge"><div class="cg-row"><span>Aggregate confidence</span><span style="font-family:var(--font-mono)">'+pct+'%</span></div>' +
+          '<div class="cg-track"><div class="cg-fill" style="width:'+pct+'%; background:'+confFillColor(r.aggregateConfidence)+'"></div>' +
+          '<div class="cg-threshold" style="left:70%"></div></div></div>';
+      }
+      if(i === 5){
+        if(r.approvalSkipped){
+          html += '<div class="s-detail">Confidence at or above the 70% threshold with no conflicts — auto-approved.</div>';
+        } else if(r.needsApproval && !r.approval){
+          html += '<div class="approval-box"><div class="ab-reason">'+r.approvalReason+'</div>' +
+            '<div class="approval-actions">' +
+            '<button class="ab-btn approve" data-action="approve">Approve</button>' +
+            '<button class="ab-btn override" data-action="override">Override</button>' +
+            '<button class="ab-btn info" data-action="request_info">Request info</button>' +
+            '<button class="ab-btn reject" data-action="reject">Reject</button>' +
+            '</div></div>';
+        } else if(r.approval){
+          html += '<div class="s-detail">Reviewer action: <strong style="color:var(--text)">'+r.approval.action+'</strong>'+(r.approval.notes?' — '+r.approval.notes:'')+'</div>';
+        }
+      }
+      if(i === 6 && r.finalDecision){
+        html += renderFinalCard(r);
+      }
+      if(i === 7 && r.status === 'decided'){
+        html += '<div class="s-detail">Full trail recorded: request metadata, agent reasoning, retrieved policies, confidence scores, and timestamps for all 8 states.</div>';
+      }
+      html += '</div></div>';
+    }
+    el.innerHTML = html;
+
+    el.querySelectorAll('.ab-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){ handleApproval(r, btn.getAttribute('data-action')); });
+    });
+  }
+
+  function renderAgentSection(r){
+    if(r.patients.length > 1){
+      var html = '<div class="batch-grid">';
+      r.batchResults.forEach(function(b, idx){
+        html += '<div class="batch-card"><div class="bc-id">'+b.ref+' · '+b.severity+'</div>' +
+          '<div class="bc-outcome">'+(b.outcome ? '<span class="conf-badge '+confClass(b.confidence)+'">'+ (b.confidence*100).toFixed(0) +'%</span> '+b.outcome : '<span class="spinner"></span>')+'</div></div>';
+      });
+      html += '</div>';
+      if(r.batchSummary){
+        html += '<div class="batch-summary">' +
+          '<div>ICU<span>'+r.batchSummary.icu+'</span></div>' +
+          '<div>General ward<span>'+r.batchSummary.ward+'</span></div>' +
+          '<div>Transfer / divert<span>'+r.batchSummary.diverted+'</span></div>' +
+          '</div>';
+      }
+      return html;
+    }
+    var html2 = '<div class="agent-cards">';
+    r.router.selected_agents.forEach(function(name){
+      var res = r.agentResults.find(function(a){ return a.agent_name === name; });
+      html2 += '<div class="agent-card"><div class="ac-head"><span class="ac-name">'+labelAgent(name)+'</span>' +
+        (res ? '<span class="conf-badge '+confClass(res.confidence_score)+'">'+(res.confidence_score*100).toFixed(0)+'%</span>' : '<span class="spinner"></span>') + '</div>';
+      if(res){
+        html2 += '<div class="ac-decision">'+decisionLine(res)+'</div>';
+        html2 += '<div class="ac-reasoning">'+res.reasoning+'</div>';
+        html2 += '<div class="citations">'+res.citations.map(function(c){ return '<span class="cite-chip">'+c.policy_name+' · '+c.section+'</span>'; }).join('')+'</div>';
+      } else {
+        html2 += '<div class="ac-reasoning">Retrieving policy context and reasoning over patient signals…</div>';
+      }
+      html2 += '</div>';
+    });
+    html2 += '</div>';
+    return html2;
+  }
+
+  function labelAgent(n){
+    return n === 'bed_allocation' ? 'Bed allocation' : n === 'staff_allocation' ? 'Staff allocation' : 'Emergency routing';
+  }
+  function decisionLine(res){
+    if(res.agent_name === 'bed_allocation') return res.decision.bed_type;
+    if(res.agent_name === 'staff_allocation') return res.decision.assigned_role;
+    return res.decision.routing_decision + ' · priority ' + res.decision.priority_level;
+  }
+
+  function renderFinalCard(r){
+    var elapsed = r.decisionTimeSec ? r.decisionTimeSec.toFixed(1)+'s' : '—';
+    if(r.status === 'rejected'){
+      return '<div class="final-card rejected"><div class="fc-headline">Request rejected</div>' +
+        '<div class="fc-meta"><span>'+r.id+'</span><span>reviewed by '+r.approval.reviewer_id+'</span><span>'+fmtTime(new Date())+'</span></div>' +
+        '<div class="fc-reasoning">'+(r.approval.notes || 'Closed on reviewer rejection; no allocation made.')+'</div></div>';
+    }
+    var headline = r.patients.length > 1
+      ? r.batchSummary.icu + ' to ICU, ' + r.batchSummary.ward + ' to general ward, ' + r.batchSummary.diverted + ' transferred or diverted'
+      : r.finalDecision.headline;
+    return '<div class="final-card"><div class="fc-headline">'+headline+'</div>' +
+      '<div class="fc-meta"><span>'+r.id+'</span><span>confidence '+(r.aggregateConfidence*100).toFixed(0)+'%</span><span>decision time '+elapsed+'</span><span>'+fmtTime(new Date())+'</span></div>' +
+      '<div class="fc-reasoning">'+r.finalDecision.reasoning+'</div></div>';
+  }
+
+  /* ---------------- rendering: audit ---------------- */
+  function renderAudit(){
+    var el = document.getElementById('audit-view');
+    if(!auditEntries.length){ el.innerHTML = '<div class="empty-state">Entries appear here as requests move through each state.</div>'; return; }
+    el.innerHTML = auditEntries.slice(0,80).map(function(e){
+      return '<div class="audit-row '+e.tone+'"><div class="a-top"><span>'+e.reqId+'</span><span>'+fmtTime(e.ts)+'</span></div>' +
+        '<div class="a-state">'+e.state+'</div><div class="a-detail">'+e.detail+'</div></div>';
+    }).join('');
+  }
+
+  /* ---------------- stats ---------------- */
+  function updateStats(){
+    document.getElementById('stat-active-agents').textContent = activeAgentCount;
+    if(decisionTimes.length){
+      var avg = decisionTimes.reduce(function(a,b){return a+b;},0) / decisionTimes.length;
+      document.getElementById('stat-avg-time').textContent = avg.toFixed(1)+'s';
+    }
+  }
+
+  function setGauge(id, pct, statusText){
+    var g = document.getElementById(id);
+    g.querySelector('.g-val').textContent = pct+'%';
+    var fill = g.querySelector('.g-fill');
+    fill.style.width = pct+'%';
+    fill.className = 'g-fill ' + (pct >= 92 ? 'fill-crit' : pct >= 80 ? 'fill-warn' : 'fill-ok');
+  }
+
+  function render(){ renderQueue(); renderPipeline(); renderAudit(); updateStats(); }
+
+  /* ---------------- pipeline execution ---------------- */
+  function launchRequest(patients){
+    var r = {
+      id: genReqId(), patients: patients, status:'running', stageIndex:0,
+      router:null, agentResults:[], consolidation:null, aggregateConfidence:undefined,
+      needsApproval:false, approvalSkipped:false, approvalReason:'', approval:null,
+      finalDecision:null, decisionTimeSec:null, startedAt:Date.now(),
+      batchResults: patients.map(function(p){ return {ref:p.ref, severity:p.severity, outcome:null, confidence:0}; }),
+      batchSummary:null
+    };
+    requests.push(r);
+    selectedId = r.id;
+    render();
+    runPipeline(r);
+  }
+
+  function forcesConflict(r){
+    return r.patients.length === 1 && r.patients[0].complaint.indexOf('comorbid') > -1;
+  }
+
+  function runPipeline(r){
+    return (async function(){
+      // stage 0: input validation
+      await wait(400);
+      logAudit(r.id, 'Input validation', r.patients.length + ' record(s) passed field and capacity checks.', 'teal');
+      r.stageIndex = 1; render();
+
+      // stage 1: classification
+      await wait(750);
+      if(r.patients.length === 1){
+        r.router = classify(r.patients[0]);
+      } else {
+        var agentSet = {};
+        r.patients.forEach(function(p){ classify(p).selected_agents.forEach(function(a){ agentSet[a]=true; }); });
+        r.router = { request_type:'combination', selected_agents:Object.keys(agentSet),
+          routing_reasoning:'8 patients classified in parallel; mix of emergency routing and bed allocation based on individual acuity.',
+          confidence_score: 0.93 };
+      }
+      logAudit(r.id, 'Request classification', 'Classified as ' + r.router.request_type + ' → ' + r.router.selected_agents.join(', ') + '.', 'teal');
+      r.stageIndex = 2; render();
+
+      // stage 2: agent execution
+      var conflict = forcesConflict(r);
+      if(r.patients.length === 1){
+        var agentNames = r.router.selected_agents;
+        activeAgentCount = agentNames.length; updateStats();
+        var jobs = agentNames.map(function(name, idx){
+          return wait(1600 + idx*550 + Math.random()*500).then(function(){
+            var res = runAgent(name, r.patients[0], conflict);
+            r.agentResults.push(res);
+            activeAgentCount = Math.max(0, activeAgentCount-1);
+            logAudit(r.id, 'Agent execution', labelAgent(name) + ' returned "' + decisionLine(res) + '" at ' + (res.confidence_score*100).toFixed(0) + '% confidence.', conflict ? 'amber' : 'teal');
+            render();
+          });
+        });
+        await Promise.all(jobs);
+      } else {
+        activeAgentCount = r.patients.length;
+        var batchJobs = r.patients.map(function(p, idx){
+          return wait(3000 + idx*900 + Math.random()*600).then(function(){
+            var bedRes = bedAgent(p, false);
+            var emRes = emergencyAgent(p);
+            var outcome = emRes.decision.routing_decision === 'Divert to urgent care' ? 'Diverted' :
+              (bedRes.decision.bed_type === 'ICU' ? 'Accepted → ICU' : bedRes.decision.bed_type === 'General ward' ? 'Accepted → General ward' : 'Accepted → Isolation');
+            var b = r.batchResults[idx];
+            b.outcome = outcome; b.confidence = Math.min(bedRes.confidence_score, emRes.confidence_score);
+            activeAgentCount = Math.max(0, activeAgentCount-1);
+            logAudit(r.id, 'Agent execution', p.ref + ' (' + p.severity + ') → ' + outcome + '.', 'teal');
+            render();
+          });
+        });
+        await Promise.all(batchJobs);
+      }
+      r.stageIndex = 3; render();
+
+      // stage 3: consolidation
+      await wait(500);
+      if(r.patients.length === 1){
+        var confs = r.agentResults.map(function(a){ return a.confidence_score; });
+        var minConf = Math.min.apply(null, confs);
+        var conflictDetected = conflict;
+        r.consolidation = r.agentResults.length > 1
+          ? 'Combined ' + r.agentResults.length + ' agent outputs into a single recommendation.' + (conflictDetected ? ' Conflict detected between bed and staffing agents.' : ' No conflicts detected.')
+          : 'Single-agent recommendation carried forward without conflict.';
+        r.aggregateConfidence = +minConf.toFixed(2);
+        r.needsApproval = r.aggregateConfidence < 0.70 || conflictDetected;
+        r.approvalReason = conflictDetected
+          ? 'Agent disagreement: bed placement and staffing coverage do not fully align this shift.'
+          : 'Confidence below the 70% approval threshold.';
+      } else {
+        var icu = r.batchResults.filter(function(b){return b.outcome.indexOf('ICU')>-1;}).length;
+        var ward = r.batchResults.filter(function(b){return b.outcome.indexOf('General')>-1 || b.outcome.indexOf('Isolation')>-1;}).length;
+        var diverted = r.batchResults.filter(function(b){return b.outcome==='Diverted';}).length;
+        r.batchSummary = { icu:icu, ward:ward, diverted:diverted };
+        r.consolidation = 'Consolidated ' + r.patients.length + ' individual agent outcomes into a single batch summary.';
+        r.aggregateConfidence = +(Math.min.apply(null, r.batchResults.map(function(b){return b.confidence;}))).toFixed(2);
+        r.needsApproval = r.aggregateConfidence < 0.70;
+        setGauge('gauge-icu', 94, 'Limited');
+        setGauge('gauge-ward', 88, 'Limited');
+        document.getElementById('capacity-status').style.display = 'block';
+        document.getElementById('capacity-status').textContent = 'Hospital capacity status: overall limited';
+      }
+      logAudit(r.id, 'Result consolidation', r.consolidation, 'teal');
+      r.stageIndex = 4; render();
+
+      // stage 4: confidence evaluation
+      await wait(400);
+      logAudit(r.id, 'Confidence evaluation', 'Aggregate confidence ' + (r.aggregateConfidence*100).toFixed(0) + '% — ' + (r.needsApproval ? 'below threshold or conflicted, routing to human review.' : 'above threshold, eligible for auto-approval.'), r.needsApproval ? 'amber' : 'teal');
+      r.stageIndex = 5; render();
+
+      // stage 5: human approval gate
+      if(r.needsApproval){
+        logAudit(r.id, 'Human approval gate', 'Held for reviewer decision: ' + r.approvalReason, 'amber');
+        r.status = 'pending_approval';
+        render();
+        return; // wait for user interaction via handleApproval()
+      } else {
+        r.approvalSkipped = true;
+        logAudit(r.id, 'Human approval gate', 'Auto-approved — no reviewer action required.', 'teal');
+      }
+      await wait(200);
+      r.stageIndex = 6; render();
+      await finalizeDecision(r);
+    })();
+  }
+
+  async function finalizeDecision(r){
+    await wait(350);
+    if(r.patients.length === 1){
+      var lead = r.agentResults[0];
+      var headline = lead.agent_name === 'bed_allocation' ? lead.decision.bed_type + ' bed assigned'
+        : lead.agent_name === 'staff_allocation' ? lead.decision.assigned_role + ' assigned'
+        : lead.decision.routing_decision;
+      if(r.router.selected_agents.length > 1){
+        var bedRes = r.agentResults.find(function(a){return a.agent_name==='bed_allocation';});
+        headline = bedRes ? bedRes.decision.bed_type + ' bed, coordinated allocation' : headline;
+      }
+      r.finalDecision = { headline: headline, reasoning: r.agentResults.map(function(a){ return labelAgent(a.agent_name) + ': ' + a.reasoning; }).join(' ') };
+    } else {
+      r.finalDecision = { headline: 'Batch triage complete', reasoning: '8 patients processed concurrently; outcomes assigned by acuity and current capacity, not arrival order.' };
+    }
+    r.decisionTimeSec = (Date.now() - r.startedAt) / 1000;
+    decisionTimes.push(r.decisionTimeSec);
+    logAudit(r.id, 'Final decision', 'Recommendation finalized in ' + r.decisionTimeSec.toFixed(1) + 's.', 'teal');
+    r.stageIndex = 7; render();
+    await wait(300);
+    logAudit(r.id, 'Audit logging', 'Complete trail stored for all 8 states, including policy citations.', 'teal');
+    r.status = 'decided';
+    r.stageIndex = 8; render();
+  }
+
+  function handleApproval(r, action){
+    var reviewerId = 'reviewer-01';
+    if(action === 'request_info'){
+      logAudit(r.id, 'Human approval gate', 'Reviewer requested additional information; re-running agent execution.', 'amber');
+      r.needsApproval = false; r.approvalSkipped = false; r.approval = null;
+      r.stageIndex = 2; r.agentResults = []; render();
+      wait(1800).then(function(){
+        r.agentResults = r.router.selected_agents.map(function(n){ return runAgent(n, r.patients[0], false); });
+        var minConf = Math.min.apply(null, r.agentResults.map(function(a){return a.confidence_score;}));
+        r.aggregateConfidence = +minConf.toFixed(2);
+        r.needsApproval = r.aggregateConfidence < 0.70;
+        r.stageIndex = 5; render();
+        if(!r.needsApproval){
+          r.approvalSkipped = true;
+          logAudit(r.id, 'Human approval gate', 'Re-run cleared the threshold — auto-approved.', 'teal');
+          r.stageIndex = 6; render();
+          finalizeDecision(r);
+        }
+      });
+      return;
+    }
+    r.approval = { reviewer_id: reviewerId, action: action, notes: action === 'override' ? 'Reviewer substituted judgment given shift staffing constraints.' : (action === 'reject' ? 'Insufficient monitored coverage confirmed; closing request.' : null), decided_at: new Date() };
+    logAudit(r.id, 'Human approval gate', 'Reviewer action: ' + action + '.', action === 'reject' ? 'red' : 'teal');
+    r.stageIndex = 6;
+    if(action === 'reject'){
+      r.status = 'rejected';
+      r.decisionTimeSec = (Date.now() - r.startedAt) / 1000;
+      render();
+      return;
+    }
+    render();
+    finalizeDecision(r);
+  }
+
+  /* ---------------- custom form ---------------- */
+  document.getElementById('submit-custom').addEventListener('click', function(){
+    var age = document.getElementById('f-age').value;
+    var complaint = document.getElementById('f-complaint').value.trim();
+    var errEl = document.getElementById('custom-err');
+    if(!age || !complaint){ errEl.style.display = 'block'; return; }
+    errEl.style.display = 'none';
+    var p = patient({
+      age: parseInt(age,10), complaint: complaint,
+      severity: document.getElementById('f-severity').value,
+      monitoring: document.getElementById('f-monitoring').value,
+      arrival: document.getElementById('f-arrival').value,
+      isolation: document.getElementById('f-isolation').checked
+    });
+    launchRequest([p]);
+  });
+
+  renderScenarios();
+  render();
+})();
+</script>
+</body>
+</html>
