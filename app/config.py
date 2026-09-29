@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     human_approval_threshold: float = 0.70
     max_agent_retries: int = 3
 
+    # Force rule-based agents (fast, deterministic, no API calls) for testing/demo.
+    # When True, ignores real LLM and uses decision rules instead. Default False = real LLM.
+    use_rule_based_agents: bool = False
+
     # Auth — stubbed for the first pass, see CLAUDE.md TODO.
     api_key: str = "dev-local-api-key"
 

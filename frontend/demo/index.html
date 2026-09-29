@@ -640,6 +640,13 @@
     return apiFetch('/requests', {method:'POST', body: JSON.stringify(r.patient)})
       .then(function(created){
         r.id = created.request_id;
+        // Poll every 1s until request is decided, then stop
+        var pollInterval = setInterval(function(){
+          refreshRequest(r).then(function(){
+            if(r.workflow_status === 'decided') clearInterval(pollInterval);
+          });
+        }, 1000);
+        // Initial refresh
         return refreshRequest(r);
       })
       .catch(function(err){ r.error = String(err.message || err); render(); });

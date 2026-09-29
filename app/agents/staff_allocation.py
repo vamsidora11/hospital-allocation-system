@@ -8,6 +8,7 @@ Pure function of (patient_information, retrieved_policies, resource_snapshot) ->
 from pydantic import BaseModel
 
 from app.agents.grounding import apply_grounding
+from app.config import get_settings
 from app.llm import get_chat_llm
 from app.models.domain import AgentResult, PatientInfo, PolicyCitation
 
@@ -96,7 +97,8 @@ def run_staff_allocation_agent(
     retrieved_policies: list[PolicyCitation],
     resource_snapshot: dict,
 ) -> AgentResult:
-    llm = get_chat_llm()
+    settings = get_settings()
+    llm = get_chat_llm() if not settings.use_rule_based_agents else None
     if llm is None:
         assigned_role, reasoning, base_confidence = _rule_based_decision(patient, resource_snapshot)
     else:

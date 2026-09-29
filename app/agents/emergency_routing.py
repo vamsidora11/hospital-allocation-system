@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.agents.grounding import apply_grounding
+from app.config import get_settings
 from app.llm import get_chat_llm
 from app.models.domain import AgentResult, PatientInfo, PolicyCitation
 
@@ -82,7 +83,8 @@ def run_emergency_routing_agent(
     retrieved_policies: list[PolicyCitation],
     resource_snapshot: dict,
 ) -> AgentResult:
-    llm = get_chat_llm()
+    settings = get_settings()
+    llm = get_chat_llm() if not settings.use_rule_based_agents else None
     if llm is None:
         routing_decision, priority_level, reasoning, base_confidence = _rule_based_decision(
             patient, resource_snapshot

@@ -7,6 +7,7 @@ returns `None` — see CLAUDE.md), falls back to an equivalent deterministic rul
 workflow still runs end-to-end and is unit-testable without a live key.
 """
 
+from app.config import get_settings
 from app.graph.state import WorkflowState
 from app.llm import get_chat_llm
 from app.models.domain import PatientInfo, RouterOutput
@@ -64,7 +65,8 @@ def _rule_based_classify(patient: PatientInfo) -> RouterOutput:
 
 
 def classify_request(patient: PatientInfo) -> RouterOutput:
-    llm = get_chat_llm()
+    settings = get_settings()
+    llm = get_chat_llm() if not settings.use_rule_based_agents else None
     if llm is None:
         return _rule_based_classify(patient)
 
