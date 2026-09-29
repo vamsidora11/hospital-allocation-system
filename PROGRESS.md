@@ -216,3 +216,64 @@ to work, since it appeared in a possibly-logged chat transcript.
   paths) — all 13 bed-allocation fixtures and all 3 emergency-routing fixtures matched on the
   first run, no logic corrections needed this time.
 - Full suite: 53/53 passing.
+
+## Phase 5 — LangGraph orchestration
+
+- `app/graph/state.py`: the LangGraph-runtime `WorkflowState` — same shape as
+  `app/models/domain.py`'s pinned `WorkflowState`, plus reducers so parallel
+  `AGENT_EXECUTION` branches merge correctly instead of overwriting each other
+  (`operator.add` for `agent_results`/`retrieved_policies`/`audit_trail`, a small
+  `_merge_dicts` for `confidence_scores`, `_max_reducer` for `retry_count` — builtin `max`
+  itself isn't introspectable by LangGraph's reducer-signature check, has to be a named
+  function), plus one graph-internal-only field, `force_human_review`, not part of the
+  pinned domain schema since it's plumbing the API/DB layers don't need.
+- One node file per state (`app/graph/nodes/`): `input_validation`, `router` (wraps Phase 3's
+  `classify_request`), `agent_execution` (`dispatch_agents`/`run_agent`), `consolidation`,
+  `confidence_eval`, `human_approval`, `final_decision`, `audit_logging`. `app/services/audit.py`
+  builds the `AuditEntry` each node appends — DB persistence is Phase 8.
+- `agent_execution.py`: `dispatch_agents` is the conditional-edge function that fans
+  `active_agents` out to parallel `run_agent` invocations via LangGraph's `Send`; `run_agent`
+  retrieves policies + resource snapshot, calls the matching Phase 4 agent, retrying up to
+  `MAX_AGENT_RETRIES` (3) with backoff (5s/10s/15s, ≈30s total per the plan) on any exception,
+  and falls back to a conservative default (`bed_type: general` / "no reassignment" / safe
+  `accept`) with `force_human_review=True` after exhausting retries.
+- `confidence_eval.py`: aggregate = min across `agent_results`' confidence (Section 8 default),
+  routes to human review when below `HUMAN_APPROVAL_THRESHOLD` **or** `force_human_review` is
+  set — so a fallback always forces review regardless of the (zeroed) confidence number.
+- `human_approval.py`: auto-approves when nothing flagged review; otherwise calls LangGraph's
+  `interrupt()` to pause the graph as a first-class transition, and handles all four reviewer
+  actions once resumed (`approve`/`override` → approved, `reject` → rejected, `request_info` →
+  routes back to `AGENT_EXECUTION`). Phase 5's own tests only exercise the auto-approve and
+  pending/fallback branches — actually resuming the interrupt for each of the four actions is
+  Phase 7's definition of done; this node is structurally ready for that but unverified beyond
+  "it pauses correctly," which is what Phase 5 needs.
+- `consolidation.py` is a straightforward merge for now — real conflict detection between
+  agents is Phase 6's job (its own plan section), not built yet.
+- `build_graph.py`: wires all 8 nodes per the plan's state diagram, compiled with
+  `MemorySaver` (no Postgres in this sandbox — see CLAUDE.md; swap in a Postgres-backed
+  checkpointer for anything beyond local dev/tests, that's unverified here).
+- Renamed two previously-private Phase 4 helpers to public since the orchestrator now reuses
+  them: `staff_allocation._required_specialty` → `required_specialty`,
+  `emergency_routing._PRIORITY_BY_SEVERITY` → `PRIORITY_BY_SEVERITY`.
+
+**Verification performed:**
+- `tests/integration/test_graph.py::test_end_to_end_run_produces_final_decision` — a full
+  8-node run on the critical-cardiac-ambulance fixture (mocked LLM/retrieval/capacity for
+  determinism) reaches `workflow_status: "decided"` with a populated `final_recommendation`
+  and all 8 states present in the audit trail, no interrupt.
+- `tests/integration/test_graph.py::test_forced_failure_retries_then_falls_back_to_conservative_default`
+  — patched `bed_allocation`'s agent function to always raise; confirms exactly 3 attempts
+  (`MAX_AGENT_RETRIES`), `retry_count == 3`, `force_human_review is True`, the fallback
+  decision (`{"bed_type": "general"}`, `policy_grounded=False`), and that the graph paused at
+  the human-approval interrupt rather than reaching a decision — i.e. retry → fallback →
+  forced review, not retry → fallback → silently-decided.
+- Also ran the graph manually (not via pytest) against the real stack — real Gemini router +
+  real Gemini agents + real Chroma retrieval + real seeded capacity data — end-to-end to
+  `"decided"` with a sensible, well-grounded `final_recommendation`, before writing the
+  hermetic pytest versions above.
+- Full suite: 55/55 passing.
+
+**TODO:** Postgres-backed checkpointer (currently `MemorySaver`, in-process only — a real
+restart mid-`HUMAN_APPROVAL_GATE` would lose the paused run) and the request_info/reject/
+override resume paths are both explicitly deferred to Phase 7/8 per the plan's own phase
+breakdown, not accidentally skipped.

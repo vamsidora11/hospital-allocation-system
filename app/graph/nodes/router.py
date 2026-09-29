@@ -7,8 +7,10 @@ returns `None` — see CLAUDE.md), falls back to an equivalent deterministic rul
 workflow still runs end-to-end and is unit-testable without a live key.
 """
 
+from app.graph.state import WorkflowState
 from app.llm import get_chat_llm
 from app.models.domain import PatientInfo, RouterOutput
+from app.services.audit import make_entry
 
 _ROUTER_PROMPT = """You classify hospital resource-allocation requests. Given the patient
 information below, decide which of the following agents must run: bed_allocation,
@@ -68,3 +70,19 @@ def classify_request(patient: PatientInfo) -> RouterOutput:
 
     structured_llm = llm.with_structured_output(RouterOutput)
     return structured_llm.invoke(_ROUTER_PROMPT.format(patient=patient.model_dump()))
+
+
+def router_node(state: WorkflowState) -> dict:
+    router_output = classify_request(state["patient_information"])
+    entry = make_entry(
+        request_id=state["request_id"],
+        state="REQUEST_CLASSIFICATION",
+        input_snapshot=state["patient_information"].model_dump(mode="json"),
+        output_snapshot=router_output.model_dump(),
+    )
+    return {
+        "request_type": router_output.request_type,
+        "active_agents": router_output.selected_agents,
+        "confidence_scores": {"router": router_output.confidence_score},
+        "audit_trail": [entry],
+    }

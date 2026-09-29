@@ -39,7 +39,7 @@ Staff availability: {resource_snapshot}
 """
 
 
-def _required_specialty(patient: PatientInfo) -> str:
+def required_specialty(patient: PatientInfo) -> str:
     text = f"{patient.diagnosis_category} {patient.presenting_complaint}".lower()
     if any(k in text for k in _CARDIAC_KEYWORDS):
         return "cardiac"
@@ -53,7 +53,7 @@ def _required_specialty(patient: PatientInfo) -> str:
 def _rule_based_decision(
     patient: PatientInfo, resource_snapshot: dict
 ) -> tuple[str, str, float]:
-    specialty = _required_specialty(patient)
+    specialty = required_specialty(patient)
     role = _ROLE_BY_SPECIALTY[specialty]
 
     if specialty == "cardiac":

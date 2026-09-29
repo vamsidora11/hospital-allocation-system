@@ -15,7 +15,7 @@ from app.models.domain import AgentResult, PatientInfo, PolicyCitation
 
 MAX_CITATIONS = 2
 
-_PRIORITY_BY_SEVERITY = {"critical": 1, "high": 2, "moderate": 3, "minor": 4}
+PRIORITY_BY_SEVERITY = {"critical": 1, "high": 2, "moderate": 3, "minor": 4}
 
 
 class EmergencyRoutingLLMOutput(BaseModel):
@@ -37,7 +37,7 @@ Department status: {resource_snapshot}
 def _rule_based_decision(
     patient: PatientInfo, resource_snapshot: dict
 ) -> tuple[Literal["accept", "transfer", "divert"], int, str, float]:
-    priority = _PRIORITY_BY_SEVERITY[patient.severity]
+    priority = PRIORITY_BY_SEVERITY[patient.severity]
     department_load = resource_snapshot.get("department_load", "normal")
     specialist_capability_available = resource_snapshot.get("specialist_capability_available", True)
 
