@@ -637,16 +637,14 @@
   }
 
   function submitAndTrack(r){
+    // POST /requests is synchronous end-to-end: the graph runs to its terminal state for
+    // this pass (decided, or paused with approval_status "pending" for a human reviewer)
+    // before the promise resolves. No polling needed or wanted here — a request that
+    // legitimately pauses for approval (e.g. the ambiguous/contested case) never reaches
+    // "decided" on its own, so any poll loop keyed on that condition runs forever.
     return apiFetch('/requests', {method:'POST', body: JSON.stringify(r.patient)})
       .then(function(created){
         r.id = created.request_id;
-        // Poll every 1s until request is decided, then stop
-        var pollInterval = setInterval(function(){
-          refreshRequest(r).then(function(){
-            if(r.workflow_status === 'decided') clearInterval(pollInterval);
-          });
-        }, 1000);
-        // Initial refresh
         return refreshRequest(r);
       })
       .catch(function(err){ r.error = String(err.message || err); render(); });

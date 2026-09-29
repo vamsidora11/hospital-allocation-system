@@ -5,13 +5,25 @@ requests naturally produce `selected_agents` with more than one entry and
 `request_type: "combination"`. With no LLM configured in this sandbox (`get_chat_llm()`
 returns `None` — see CLAUDE.md), falls back to an equivalent deterministic rule set so the
 workflow still runs end-to-end and is unit-testable without a live key.
+
+The plan's retry/fallback wrapping (Section 5) only covers AGENT_EXECUTION, not
+REQUEST_CLASSIFICATION — but a bare LLM call with no retry at all means one transient error
+(a 429 rate-limit response, a network blip) crashes the whole request with an unhandled 500.
+`classify_request` retries the real LLM call a couple of times with backoff and, if it still
+fails, falls back to the same deterministic rule set used when no LLM is configured at all —
+so a transient failure degrades gracefully instead of failing the request outright.
 """
+
+import time
 
 from app.config import get_settings
 from app.graph.state import WorkflowState
 from app.llm import get_chat_llm
 from app.models.domain import PatientInfo, RouterOutput
 from app.services.audit import make_entry
+
+_ROUTER_MAX_ATTEMPTS = 3
+_ROUTER_BACKOFF_SECONDS = (3, 6)
 
 _ROUTER_PROMPT = """You classify hospital resource-allocation requests. Given the patient
 information below, decide which of the following agents must run: bed_allocation,
@@ -71,7 +83,25 @@ def classify_request(patient: PatientInfo) -> RouterOutput:
         return _rule_based_classify(patient)
 
     structured_llm = llm.with_structured_output(RouterOutput)
-    return structured_llm.invoke(_ROUTER_PROMPT.format(patient=patient.model_dump()))
+    prompt = _ROUTER_PROMPT.format(patient=patient.model_dump())
+
+    last_error: Exception | None = None
+    for attempt in range(_ROUTER_MAX_ATTEMPTS):
+        try:
+            return structured_llm.invoke(prompt)
+        except Exception as exc:  # noqa: BLE001 - any transient LLM/network failure is retryable
+            last_error = exc
+            if attempt < _ROUTER_MAX_ATTEMPTS - 1:
+                time.sleep(_ROUTER_BACKOFF_SECONDS[min(attempt, len(_ROUTER_BACKOFF_SECONDS) - 1)])
+
+    # Exhausted retries — degrade to the deterministic rule set rather than failing the
+    # request outright. Reflected in the reasoning so it's visible in the audit trail.
+    fallback = _rule_based_classify(patient)
+    fallback.routing_reasoning = (
+        f"LLM classification failed after {_ROUTER_MAX_ATTEMPTS} attempts ({last_error}); "
+        f"fell back to rule-based classification. {fallback.routing_reasoning}"
+    )
+    return fallback
 
 
 def router_node(state: WorkflowState) -> dict:
