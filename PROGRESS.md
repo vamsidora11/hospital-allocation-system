@@ -133,29 +133,54 @@ corpus.
   intended order; real retrieval (once a working embedding provider is configured) should do
   better than this fallback demonstrates.
 
-**On the Google AI Studio key provided mid-session:** wired `GoogleAIEmbeddingClient` /
-`ChatGoogleGenerativeAI` behind the existing `EmbeddingClient`/`get_chat_llm()` interfaces
-(provider priority now Google > Azure > local fallback). The key itself, verified via direct
-REST calls to both `:embedContent` and `:generateContent`, returns `401
-ACCESS_TOKEN_TYPE_UNSUPPORTED` from `generativelanguage.googleapis.com` — that response means
-Google is reading it as an OAuth-style token, not a plain API key (real AI Studio keys look
-like `AIzaSy...`, this one was `AQ.Ab8...`). This is a real external-service finding, not a bug
-in the wiring. The key was cleared back to blank in the local, git-ignored `.env` (never
-committed, never printed) so the app doesn't silently attempt broken API calls; it currently
-runs on the local hashing embeddings / rule-based router fallback. **TODO:** paste a real key
-from https://aistudio.google.com/apikey into `.env`'s `GOOGLE_API_KEY` to activate the Google
-path — the code is ready and unit-tested for the fallback path, but the live Google call itself
-is unverified pending a working key.
+**On the Google AI Studio key, corrected:** the first key provided did fail with `401
+ACCESS_TOKEN_TYPE_UNSUPPORTED` on direct REST calls, which I initially (wrongly) attributed to
+the key being the wrong *type* of credential. The user then generated a fresh key straight from
+the AI Studio "Create a new key" dialog — same `AQ.Ab8...` prefix — which confirmed that prefix
+*is* a normal, current AI Studio key format (my assumption that real keys look like `AIzaSy...`
+was outdated/wrong). Retesting that new key got a `404` instead of `401` — i.e. authentication
+succeeded, but the model name was wrong: `gemini-1.5-flash` / `text-embedding-004` don't exist
+for this project. Listed available models via `GET /v1beta/models` and switched to
+`gemini-embedding-001` (embeddings) and, after `gemini-3.8-flash` intermittently 503'd (likely
+just high demand on a frontier/preview model) and `gemini-2.5-flash`/`gemini-2.5-flash-lite`
+turned out to be retired for new users, settled on `gemini-3.5-flash-lite` — confirmed stable
+across repeated calls.
 
-**Security note:** the key was shared in this session via a pasted screenshot. Recommend
-rotating/regenerating it in Google AI Studio as routine hygiene, independent of the auth issue
-above, since it appeared in a possibly-logged chat transcript.
+Separately, `langchain_google_genai`'s client (`GoogleGenerativeAIEmbeddings`,
+`ChatGoogleGenerativeAI`) hung indefinitely against this same, working key and endpoint — killed
+after 3+ minutes with zero output — while raw `curl`/`httpx` REST calls to the identical
+endpoint succeeded in under a second. Root cause not fully isolated (likely the SDK's transport
+trying gRPC and/or probing for ambient GCP credentials, both of which can behave badly in a
+sandboxed network), but rather than debug the SDK further, replaced it with a thin direct-REST
+`httpx`-based client for both embeddings (`GoogleAIEmbeddingClient` in
+`app/rag/embeddings.py`) and chat (`GoogleAIChatClient`/`_StructuredCaller` in `app/llm.py`,
+which converts a Pydantic model's JSON schema into Gemini's `responseSchema` format so
+`with_structured_output(Model).invoke(prompt)` keeps working exactly as `router.py` expects).
+Also hit one real transient `httpx.ReadError` (`WinError 10054`, connection forcibly closed)
+partway through a 49-chunk ingestion run — added a 3-attempt retry with backoff to
+`GoogleAIEmbeddingClient.embed`, since this is now a demonstrated live failure mode, not a
+speculative one.
+
+**Unit tests now explicitly force the offline fallback** (`tests/unit/conftest.py`, autouse
+fixture) regardless of `.env` having a working key — monkeypatches
+`app.graph.nodes.router.get_chat_llm` to `None` and `app.rag.retriever.get_embedding_client` to
+`LocalHashingEmbeddingClient`. This keeps the suite fast, free, deterministic, and
+network-independent, per the plan's Phase 4 "mocked LLM" testing philosophy — real-provider
+behavior is exercised manually/live instead (see verification below), not from pytest.
+
+**Security note:** the key was shared in this session via pasted screenshots. Recommend
+rotating/regenerating it in Google AI Studio as routine hygiene, independent of it turning out
+to work, since it appeared in a possibly-logged chat transcript.
 
 **Verification performed:**
-- `tests/unit/test_router.py` (10 tests) + `tests/unit/test_router_eval_fixtures.py`
-  (13 tests, parametrized over every entry in `data/fixtures/eval_fixtures.json`) — all pass,
-  asserting `request_type` and `selected_agents` match the fixture's `expected_router`.
-- Full suite (`tests/`) re-run after the policy-doc rewrite and router fix: 26/26 passing.
-- Direct REST verification that the provided Google API key is rejected by Google's API (see
-  above) — not just "the Python client raised an exception," the raw HTTP response was
-  inspected.
+- `tests/unit/test_router.py` (10) + `tests/unit/test_router_eval_fixtures.py` (13) +
+  `tests/unit/test_retriever.py` (3) — 26/26 passing, fully offline via the conftest fixture.
+- Live, real Gemini call: `classify_request()` against a critical-cardiac-ambulance patient
+  returned a correct, well-reasoned `RouterOutput` (`combination`,
+  all three agents, confidence 0.98) from the actual `gemini-3.5-flash-lite` structured-output
+  call — not the rule-based fallback.
+- Re-ingested all 49 policy chunks with real `gemini-embedding-001` vectors (3072-dim).
+  Similarity scores jumped from ~0.2–0.44 (hashing fallback) to ~0.7–0.86 (real embeddings) on
+  the same test queries, and correctly top-ranked the intended section every time (e.g. "5.1
+  ICU nurse ratios" for an ICU-ratio query). Verified live via `POST /policy/search` too, not
+  just the retriever function directly.

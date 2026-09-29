@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     # Google AI Studio > Azure OpenAI > local offline fallback. Unset in this dev sandbox
     # except for Google (see PROGRESS.md Phase 3 entry).
     google_api_key: str | None = None
-    google_embedding_model: str = "models/text-embedding-004"
-    google_chat_model: str = "gemini-1.5-flash"
+    google_embedding_model: str = "models/gemini-embedding-001"
+    google_chat_model: str = "gemini-3.5-flash-lite"
     azure_openai_api_key: str | None = None
     azure_openai_endpoint: str | None = None
     openai_api_key: str | None = None

@@ -48,17 +48,46 @@ class LocalHashingEmbeddingClient(EmbeddingClient):
 
 
 class GoogleAIEmbeddingClient(EmbeddingClient):
-    def __init__(self):
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings  # optional dep, lazy
+    """Calls the Gemini REST API directly with httpx rather than through
+    `langchain_google_genai`/`google-generativeai` — that SDK's client hung indefinitely in
+    this sandbox (likely gRPC transport or ambient-credential probing) even though plain
+    HTTPS calls to the same endpoint succeed in under a second. See PROGRESS.md Phase 3."""
 
+    def __init__(self):
         settings = get_settings()
-        self._client = GoogleGenerativeAIEmbeddings(
-            model=settings.google_embedding_model,
-            google_api_key=settings.google_api_key,
-        )
+        self._api_key = settings.google_api_key
+        self._model = settings.google_embedding_model  # e.g. "models/gemini-embedding-001"
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        return self._client.embed_documents(texts)
+        import time
+
+        import httpx
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/{self._model}:embedContent"
+        results = []
+        with httpx.Client(timeout=30.0) as client:
+            for text in texts:
+                # Retries a transient connection drop seen live against this API
+                # (httpx.ReadError / WinError 10054 mid-ingestion) — not speculative.
+                last_error: Exception | None = None
+                for attempt in range(3):
+                    try:
+                        response = client.post(
+                            url,
+                            params={"key": self._api_key},
+                            json={"content": {"parts": [{"text": text}]}},
+                        )
+                        response.raise_for_status()
+                        results.append(response.json()["embedding"]["values"])
+                        last_error = None
+                        break
+                    except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+                        last_error = exc
+                        if attempt < 2:
+                            time.sleep(1.5 * (attempt + 1))
+                if last_error is not None:
+                    raise last_error
+        return results
 
 
 class AzureOpenAIEmbeddingClient(EmbeddingClient):
