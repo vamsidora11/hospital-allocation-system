@@ -42,6 +42,7 @@ def initial_state(request_id: str, p: PatientInfo) -> dict:
         "audit_trail": [],
         "retry_count": 0,
         "force_human_review": False,
+        "conflict_detected": False,
     }
 
 
@@ -138,5 +139,39 @@ def test_forced_failure_retries_then_falls_back_to_conservative_default(monkeypa
     # Confidence was 0.0 and force_human_review is set, so this must NOT have
     # auto-approved straight through to a decision — it should be paused at the
     # human approval interrupt instead.
+    assert "__interrupt__" in result
+    assert result["workflow_status"] != "decided"
+
+
+def test_conflicting_bed_and_staff_agents_forces_human_review(monkeypatch):
+    """Phase 6 definition of done: bed agent recommends ICU, but staff agent can't confirm
+    ICU-level coverage (no specialist on shift) — this must force human review even though
+    the bed agent itself is confident and well-grounded."""
+    monkeypatch.setattr(bed_allocation, "get_chat_llm", lambda: None)
+    monkeypatch.setattr(staff_allocation, "get_chat_llm", lambda: None)
+    monkeypatch.setattr(emergency_routing, "get_chat_llm", lambda: None)
+    monkeypatch.setattr(agent_execution_module, "retrieve", lambda query, domain, k=4: [_good_citation()])
+
+    def _snapshot(agent_name, patient):
+        if agent_name == "bed_allocation":
+            return {"icu": {"total": 6, "available": 3}}
+        if agent_name == "staff_allocation":
+            return {"available_on_shift": 5, "specialist_available": 0}  # coverage shortfall
+        return {"department_load": "normal", "specialist_capability_available": True}
+
+    monkeypatch.setattr(agent_execution_module, "_resource_snapshot_for", _snapshot)
+
+    graph = build_graph()
+    p = patient(severity="critical", requires_monitoring_level="icu", arrival_mode="ambulance")
+    config = {"configurable": {"thread_id": "REQ-CONFLICT-001"}}
+    result = graph.invoke(initial_state("REQ-CONFLICT-001", p), config=config)
+
+    bed_result = next(r for r in result["agent_results"] if r.agent_name == "bed_allocation")
+    staff_result = next(r for r in result["agent_results"] if r.agent_name == "staff_allocation")
+    assert bed_result.decision["bed_type"] == "icu"
+    assert bed_result.confidence_score >= 0.85  # bed agent itself is confident
+    assert staff_result.confidence_score < 0.70  # staff agent can't confirm coverage
+
+    assert result["conflict_detected"] is True
     assert "__interrupt__" in result
     assert result["workflow_status"] != "decided"

@@ -277,3 +277,24 @@ to work, since it appeared in a possibly-logged chat transcript.
 restart mid-`HUMAN_APPROVAL_GATE` would lose the paused run) and the request_info/reject/
 override resume paths are both explicitly deferred to Phase 7/8 per the plan's own phase
 breakdown, not accidentally skipped.
+
+## Phase 6 — Consolidation & confidence
+
+- `app/graph/nodes/consolidation.py`: `detect_conflict(agent_results)` implements the plan's
+  explicit example — bed agent recommends `icu` but the staff agent's own confidence is below
+  `STAFF_COVERAGE_CONFIRMATION_FLOOR` (0.70, matching the coverage-shortfall branch's
+  base_confidence of 0.52 in `app/agents/staff_allocation.py`) — i.e. staff can't confirm
+  ICU-level coverage. Sets a new graph-internal `conflict_detected` field
+  (`app/graph/state.py`, single-writer so no reducer needed).
+- `app/graph/nodes/confidence_eval.py`: `needs_approval` now also checks
+  `state.get("conflict_detected")`, alongside the existing threshold and
+  `force_human_review` checks — a conflict forces review regardless of individual (even high)
+  confidence scores, per plan Section 8.
+
+**Verification performed:**
+- `tests/integration/test_graph.py::test_conflicting_bed_and_staff_agents_forces_human_review`
+  — bed agent recommends ICU with confidence ≥0.85 (ample bed capacity, well-grounded), staff
+  agent's confidence comes out <0.70 (mocked zero specialist availability). Confirms
+  `conflict_detected is True` and the graph pauses at the human-approval interrupt rather than
+  auto-deciding, despite the bed agent's own high confidence.
+- Full suite: 56/56 passing.

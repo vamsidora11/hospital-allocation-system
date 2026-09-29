@@ -1,9 +1,10 @@
 """CONFIDENCE_EVALUATION (plan Section 8).
 
 Aggregation defaults to the *minimum* across active agents' confidence scores — a single
-low-confidence agent pulls the whole decision below threshold. Also routes to human review
-when AGENT_EXECUTION had to fall back after exhausting retries, regardless of the resulting
-confidence number (plan Section 5).
+low-confidence agent pulls the whole decision below threshold. Also routes to human review,
+regardless of the resulting confidence number, when either:
+- AGENT_EXECUTION had to fall back after exhausting retries (plan Section 5), or
+- RESULT_CONSOLIDATION flagged a conflict between agents (plan Section 8).
 """
 
 from app.config import get_settings
@@ -16,7 +17,10 @@ def confidence_eval_node(state: WorkflowState) -> dict:
     aggregate_confidence = min((r.confidence_score for r in agent_results), default=0.0)
 
     threshold = get_settings().human_approval_threshold
-    needs_approval = aggregate_confidence < threshold or state.get("force_human_review", False)
+    conflict_detected = state.get("conflict_detected", False)
+    needs_approval = (
+        aggregate_confidence < threshold or state.get("force_human_review", False) or conflict_detected
+    )
 
     entry = make_entry(
         request_id=state["request_id"],
@@ -25,6 +29,7 @@ def confidence_eval_node(state: WorkflowState) -> dict:
         output_snapshot={
             "aggregate_confidence": aggregate_confidence,
             "threshold": threshold,
+            "conflict_detected": conflict_detected,
             "needs_approval": needs_approval,
         },
     )

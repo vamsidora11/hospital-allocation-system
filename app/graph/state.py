@@ -41,3 +41,8 @@ class WorkflowState(TypedDict):
     # pinned domain-level WorkflowState (app/models/domain.py) since it's graph-internal
     # plumbing, not a field the API/DB layers need to know about.
     force_human_review: Annotated[bool, operator.or_]
+    # Set by RESULT_CONSOLIDATION when two agents' decisions conflict (plan Section 8, e.g.
+    # bed agent says ICU but staff agent can't confirm ICU nursing coverage) — forces human
+    # review regardless of individual confidence scores. Single writer (consolidation runs
+    # once, not in parallel), so no reducer needed.
+    conflict_detected: bool
