@@ -34,6 +34,14 @@ _PROMPT = """You assign staff. Given specialty needs, current shift staffing, an
 staffing-ratio policy excerpts, recommend a staff assignment and validate it against ratio
 rules. Cite only the provided policy excerpts.
 
+Confidence calibration is mandatory, not optional: if `specialist_available` is 0 for a case
+that needs a specialist, or `available_on_shift` is 0, you cannot confirm the coverage this
+assignment requires. In that situation you MUST set confidence_score below 0.60 and say so
+explicitly in your reasoning (e.g. "no cardiac-credentialed nurse confirmed on this shift;
+escalate before assignment") — do not report high confidence for an assignment the current
+shift roster cannot actually support, even if it's still the objectively correct assignment
+per policy.
+
 Patient: {patient}
 Policy excerpts: {policies}
 Staff availability: {resource_snapshot}

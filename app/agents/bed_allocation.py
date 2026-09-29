@@ -28,6 +28,13 @@ needs, and current bed availability, recommend one of: icu, general, isolation. 
 provided policy excerpts. If no excerpt supports a clear decision, say so and lower your
 confidence.
 
+Confidence calibration is mandatory, not optional: if the bed type you're recommending shows
+0 available beds in the availability data below, you cannot confirm a bed is actually ready
+for this patient right now. In that situation you MUST set confidence_score below 0.60 and
+say so explicitly in your reasoning (e.g. "no icu bed currently available; escalate to the
+on-call bed manager") — do not report high confidence for a bed type the current shift has
+none of, even if it's still the objectively correct bed type per policy.
+
 Patient: {patient}
 Policy excerpts: {policies}
 Bed availability: {resource_snapshot}
