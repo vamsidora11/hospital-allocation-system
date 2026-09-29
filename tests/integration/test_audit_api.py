@@ -10,7 +10,7 @@ from app.graph.build_graph import build_graph
 from app.models.domain import PatientInfo, PolicyCitation
 from app.services.audit import persist_entries
 from app.services.requests import create_request
-from tests.integration.conftest import AUTH_HEADERS
+from tests.conftest import AUTH_HEADERS
 
 ALL_8_STATES = [
     "INPUT_VALIDATION",

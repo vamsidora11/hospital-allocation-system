@@ -9,7 +9,7 @@ import app.api.requests as requests_api_module
 import app.graph.nodes.agent_execution as agent_execution_module
 import app.graph.nodes.router as router_module
 from app.agents import bed_allocation, emergency_routing, staff_allocation
-from tests.integration.conftest import AUTH_HEADERS
+from tests.conftest import AUTH_HEADERS
 
 _AMPLE_SNAPSHOT = {
     "icu": {"total": 6, "available": 3},

@@ -418,3 +418,40 @@ worth registering proper (de)serializers before switching to a persistent checkp
   `.../approval`, `/policy/search`, `/audit/{id}`, `/agents/status`) plus `/health`; confirmed
   `GET /docs` renders (`200`).
 - Full suite: 69/69 passing.
+
+## Phase 10 — Tests
+
+- `tests/e2e/test_demo_scenarios.py`: the plan's three named demo scenarios, run through the
+  real HTTP API end-to-end (`POST /requests` → `GET .../recommendation` / `GET /audit/{id}`),
+  with the LLM and retrieval seams held deterministic (same monkeypatch approach as
+  `tests/integration/`) so "the exact known-good outcomes stay pinned" (plan Section 11) isn't
+  at the mercy of a live model's free-form phrasing.
+  - **Scenario 1** (critical cardiac, acute MI, ICU monitoring): ICU bed, auto-approved (no
+    human gate), citations spanning both "Bed allocation policy" and "Emergency protocols".
+  - **Scenario 2** (high-acuity isolation, infectious + respiratory support): isolation room
+    + a staff role naming infectious-care credentialing, aggregate confidence ≥ 0.80,
+    citations spanning "Infection control standards" and "Staffing policy".
+  - **Scenario 3** (8-patient mass-casualty burst): 8 independent requests (each a separate
+    `request_id`/graph thread — there's no batch-incident endpoint in Section 10's API
+    surface, so "processed concurrently" is per-patient agent-level parallelism, not a single
+    shared call), each with a complete 8-state audit trail, outcomes split `icu` (critical) /
+    `general` (high/moderate/minor).
+- **Discrepancy found and deliberately not "fixed":** the plan's Section 11 narrative says
+  mass-casualty patients get "ICU / general-ward / transfer / divert" outcomes, but
+  `transfer`/`divert` can only come from `emergency_routing`, and the user's own
+  hand-derived `data/fixtures/eval_fixtures.json` (authoritative — see Phase 3, where
+  trusting it over my own assumption caught a real router bug) shows `mass_casualty` arrivals
+  never select `emergency_routing`, even at critical severity. Scenario 3's test asserts the
+  actual, fixture-verified contract (severity-driven ICU/general-ward split) rather than
+  silently reintroducing the exact router bug Phase 3 fixed just to match the narrative text.
+  Documented inline in the test file too.
+- **Self-inflicted bug caught while writing scenario 2:** my first mock for `retrieve()` was a
+  flat one-citation-per-domain map, bypassing `app/rag/retriever.py`'s real
+  `DOMAIN_EXPANSION` (which folds cross-cutting `infection_control` citations into both `bed`
+  and `staffing` queries). Fixed the mock to mirror that expansion — a test bug, not a system
+  bug, but worth noting since it looked like a missing-citation regression at first.
+- Moved the shared `client`/`session_factory` TestClient fixtures from
+  `tests/integration/conftest.py` to `tests/conftest.py` (top-level) so `tests/e2e/` can use
+  them too — pytest conftest fixtures only apply to their own directory and subdirectories.
+
+**Verification performed:** all 3 scenarios pass; full suite 72/72.
