@@ -184,3 +184,35 @@ to work, since it appeared in a possibly-logged chat transcript.
   the same test queries, and correctly top-ranked the intended section every time (e.g. "5.1
   ICU nurse ratios" for an ICU-ratio query). Verified live via `POST /policy/search` too, not
   just the retriever function directly.
+
+## Phase 4 — Agents
+
+- `app/services/capacity.py`: `bed_snapshot()` / `staff_snapshot(specialty, shift)` — the
+  "tool call" agents use for `resource_snapshot`, querying the `beds`/`staff` tables.
+- `app/agents/grounding.py`: shared `apply_grounding(citations, base_confidence)` — the
+  Section 1/6 grounding rule as actual code: no citations → confidence × 0.5,
+  `policy_grounded=False`; top citation below `GROUNDING_FLOOR` (0.55) → confidence × 0.6,
+  `policy_grounded=False`; otherwise confidence unchanged, `policy_grounded=True`. All three
+  agents call this identically so grounding can't drift between them.
+- `app/agents/{bed_allocation,staff_allocation,emergency_routing}.py`: each a pure function of
+  `(patient_information, retrieved_policies, resource_snapshot) -> AgentResult`, per Section 1 —
+  no agent calls another agent or the graph. Real path is a structured-output LLM call (used
+  automatically now that a working Gemini key is configured); rule-based fallback mirrors the
+  same decision logic when no LLM is available. Decision logic was written directly against the
+  Phase 3 policy documents (e.g. bed agent cites "Bed Allocation Policy 3.2/4.1/4.2", staff
+  agent cites "Staffing Policy 5.1/5.3/5.4", emergency agent cites "Emergency Protocols
+  1.1/2.1-2.3/3.0").
+- Extended `tests/unit/conftest.py`'s autouse fixture to force the rule-based path for all
+  three agent modules too (same reasoning as the router: unit tests must stay deterministic).
+
+**Verification performed:**
+- `tests/unit/test_agents.py` (11 tests): each agent has a clear-cut case, a mocked-capacity
+  low-confidence case (bed: no ICU bed available; staff: no credentialed specialist on shift),
+  and an ungrounded case (no citations / citations below `GROUNDING_FLOOR`).
+- `tests/unit/test_agents_eval_fixtures.py` (16 tests): cross-checked the bed and emergency
+  agents' decision logic against `data/fixtures/eval_fixtures.json`'s
+  `expected_bed_allocation`/`expected_emergency_routing` fields (assuming ample capacity and a
+  grounded citation, since those fixtures pin decision logic, not the capacity/grounding
+  paths) — all 13 bed-allocation fixtures and all 3 emergency-routing fixtures matched on the
+  first run, no logic corrections needed this time.
+- Full suite: 53/53 passing.
