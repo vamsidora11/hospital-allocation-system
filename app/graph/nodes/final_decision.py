@@ -14,11 +14,18 @@ def final_decision_node(state: WorkflowState) -> dict:
         recommendation = {"headline": "Request rejected", "reasoning": "Closed on reviewer rejection."}
     else:
         agent_results = state["agent_results"]
+        override_decision = state.get("override_decision")
         recommendation = {
             "headline": _headline(agent_results),
             "reasoning": " ".join(f"{r.agent_name}: {r.reasoning}" for r in agent_results),
+            # Original agent decisions are always preserved here, even when a reviewer
+            # override is present — see `reviewer_override` below (plan Section 8: "stored
+            # alongside, not instead of, the original agent recommendation").
             "decisions": {r.agent_name: r.decision for r in agent_results},
         }
+        if override_decision:
+            recommendation["reviewer_override"] = override_decision
+            recommendation["headline"] = "Reviewer override applied"
 
     entry = make_entry(
         request_id=state["request_id"],

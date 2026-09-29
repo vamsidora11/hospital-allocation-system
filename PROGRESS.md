@@ -298,3 +298,52 @@ breakdown, not accidentally skipped.
   `conflict_detected is True` and the graph pauses at the human-approval interrupt rather than
   auto-deciding, despite the bed agent's own high confidence.
 - Full suite: 56/56 passing.
+
+## Phase 7 — Human approval
+
+- Fixed `build_graph.py`'s routing: `reject` was going straight to `END`, skipping
+  `FINAL_DECISION`/`AUDIT_LOGGING` entirely. Plan Section 5 says reject is "logged, closed" —
+  now it routes through `final_decision` (which already had a "Request rejected" branch from
+  Phase 5 that was, until now, dead code) before ending.
+- `human_approval.py`: `override` now reads an `override_decision` dict from the resume
+  payload and returns it as a new graph-internal state field (`app/graph/state.py`); `reject`/
+  `request_info` unchanged in shape. `reason` shown to the reviewer now also covers the
+  Phase 6 conflict case, not just threshold/fallback.
+- `final_decision.py`: when `override_decision` is present, adds it to the recommendation as
+  `reviewer_override`, alongside — never replacing — `decisions` (the original per-agent
+  outputs), matching the plan's "stored alongside, not instead of" requirement literally.
+
+**Real bug found and fixed while writing the `request_info` test:** `agent_results` used a
+plain `operator.add` reducer, so after a `request_info` re-run, the fresh AGENT_EXECUTION
+results were appended *alongside* the original low-confidence ones rather than replacing them.
+`confidence_eval`'s `min()` then kept picking up the stale first-pass scores forever — a
+request_info re-run could never auto-approve, no matter how much better the second pass was.
+Fixed by replacing `agent_results`' reducer with `_replace_by_agent_name` (same agent name in
+a later pass supersedes the earlier entry; full history is unaffected since it lives in the
+separate, still-append-only `audit_trail`).
+
+**Also found while debugging that:** the "hermetic" test helpers in `test_graph.py` and
+`test_human_approval.py` patched the three agents' `get_chat_llm` but never the *router's* —
+so every Phase 5/6 integration test had actually been calling the real Gemini router the whole
+time (they passed anyway, since the real router's classification happened to agree with the
+rule-based expectation for those specific fixtures, but that was live-network dependence and
+non-determinism risk that had gone unnoticed). Fixed in both files.
+
+**Verification performed:**
+- `tests/integration/test_human_approval.py` (4 tests, one per reviewer action), all resuming
+  a genuinely-paused interrupt via LangGraph's `Command(resume=...)`:
+  - `approve` → `workflow_status: "decided"`, `approval_status: "approve"`.
+  - `override` → `decided`, `reviewer_override` in the final recommendation equals the
+    submitted substitute decision, and the original `bed_allocation` entry in `decisions` is
+    unchanged (both present, not one replacing the other).
+  - `reject` → `decided` (via FINAL_DECISION, not skipped), `final_recommendation.headline ==
+    "Request rejected"`, both `FINAL_DECISION` and `AUDIT_LOGGING` present in the audit trail.
+  - `request_info` → re-runs `AGENT_EXECUTION` (≥2 `AGENT_EXECUTION` audit entries), and with
+    stronger citations on the second pass, actually reaches `auto_approved`/`decided` — this
+    is the test that caught the `agent_results` accumulation bug above.
+- Full suite: 60/60 passing, and now fully offline/hermetic (no more accidental live Gemini
+  calls in the graph integration tests).
+
+**TODO (not a blocker):** `MemorySaver` logs `"Deserializing unregistered type ... from
+checkpoint"` warnings for the Pydantic domain types stored in state — harmless today, but
+worth registering proper (de)serializers before switching to a persistent checkpointer.

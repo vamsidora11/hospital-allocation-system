@@ -7,6 +7,7 @@ depending on a live Chroma collection, seeded DB, or LLM key being present.
 """
 
 import app.graph.nodes.agent_execution as agent_execution_module
+import app.graph.nodes.router as router_module
 from app.agents import bed_allocation, emergency_routing, staff_allocation
 from app.graph.build_graph import build_graph
 from app.models.domain import PatientInfo, PolicyCitation
@@ -43,6 +44,7 @@ def initial_state(request_id: str, p: PatientInfo) -> dict:
         "retry_count": 0,
         "force_human_review": False,
         "conflict_detected": False,
+        "override_decision": None,
     }
 
 
@@ -58,6 +60,7 @@ def _good_citation() -> PolicyCitation:
 
 def _force_offline_and_hermetic(monkeypatch):
     """No real LLM, no real Chroma/DB — ample capacity, well-grounded citations."""
+    monkeypatch.setattr(router_module, "get_chat_llm", lambda: None)
     monkeypatch.setattr(bed_allocation, "get_chat_llm", lambda: None)
     monkeypatch.setattr(staff_allocation, "get_chat_llm", lambda: None)
     monkeypatch.setattr(emergency_routing, "get_chat_llm", lambda: None)

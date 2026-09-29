@@ -20,10 +20,11 @@ def _route_after_validation(state: WorkflowState) -> str:
 
 def _route_after_approval(state: WorkflowState):
     status = state["workflow_status"]
-    if status == "approved":
+    if status in ("approved", "rejected"):
+        # Rejection is still "logged, closed" (plan Section 5) — final_decision builds
+        # the "Request rejected" recommendation and audit_logging still runs, it just
+        # doesn't reach an allocation decision.
         return "final_decision"
-    if status == "rejected":
-        return END
     # needs_more_info: re-run AGENT_EXECUTION with the same active_agents
     return dispatch_agents(state)
 
