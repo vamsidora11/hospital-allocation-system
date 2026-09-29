@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.audit import router as audit_router
 from app.api.policy import router as policy_router
 from app.config import get_settings
 
@@ -12,6 +13,7 @@ app = FastAPI(
 )
 
 app.include_router(policy_router)
+app.include_router(audit_router)
 
 
 @app.get("/health")

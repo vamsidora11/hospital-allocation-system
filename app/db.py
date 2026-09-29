@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -10,5 +12,10 @@ engine = create_engine(settings.database_url, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-def get_session() -> Session:
-    return SessionLocal()
+def get_session() -> Iterator[Session]:
+    """FastAPI dependency: `Depends(get_session)` yields a session and always closes it."""
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()

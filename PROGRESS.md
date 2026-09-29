@@ -347,3 +347,32 @@ non-determinism risk that had gone unnoticed). Fixed in both files.
 **TODO (not a blocker):** `MemorySaver` logs `"Deserializing unregistered type ... from
 checkpoint"` warnings for the Pydantic domain types stored in state — harmless today, but
 worth registering proper (de)serializers before switching to a persistent checkpointer.
+
+## Phase 8 — Audit
+
+- `app/services/requests.py`: `create_request(session, patient, request_type)` — upserts the
+  `patients` row and creates a `requests` row, returning it. Minimal on purpose; full
+  request-lifecycle management (status transitions on completion/rejection, closing) is
+  Phase 9's job, this is just the reusable piece Phase 8 needs to get a real, FK-valid
+  `request_id` to attach audit entries to.
+- `app/services/audit.py`: added `persist_entries(session, entries)` (bulk-inserts
+  `AuditLog` rows from a list of in-memory `AuditEntry`s) and `get_audit_trail(session,
+  request_id)` (reads them back, ordered by timestamp, converted back to `AuditEntry`).
+- `app/api/audit.py`: `GET /audit/{request_id}` → `list[AuditEntry]`, wired into
+  `app/main.py`.
+- `app/db.py`: `get_session()` was a plain function returning a `Session` (never closed) —
+  changed to a proper generator so `Depends(get_session)` closes it after each request; this
+  is the first place `get_session` actually got used via FastAPI's DI.
+
+**Verification performed:**
+- `tests/integration/test_audit_api.py`: runs the graph hermetically to a completed
+  ("decided") state against a real `request_id` (created via `create_request` against a
+  throwaway SQLite DB), persists its 8-state audit trail, then reads it back through the
+  actual FastAPI endpoint (`fastapi.testclient.TestClient`, with `get_session` overridden to
+  point at the test DB) — confirms all 8 states are present and correctly ordered
+  (`INPUT_VALIDATION` first, `AUDIT_LOGGING` last). A second test confirms an unknown
+  `request_id` returns an empty list rather than erroring.
+- Live end-to-end check outside pytest too: created a real request against `dev.db`,
+  persisted two audit entries, ran `uvicorn`, and confirmed `GET
+  /audit/{request_id}` → `200` with the expected JSON.
+- Full suite: 62/62 passing.
