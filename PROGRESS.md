@@ -376,3 +376,45 @@ worth registering proper (de)serializers before switching to a persistent checkp
   persisted two audit entries, ran `uvicorn`, and confirmed `GET
   /audit/{request_id}` → `200` with the expected JSON.
 - Full suite: 62/62 passing.
+
+## Phase 9 — API layer
+
+- `app/api/auth.py`: stub `verify_api_key` (`X-API-Key` header vs `settings.api_key`) per plan
+  Section 10's explicit "stub an API-key header check" instruction — applied as a router-level
+  dependency to every business router (`policy`, `audit`, `requests`, `agents_status`), not to
+  `/health` (health checks are conventionally unauthenticated). Updated the Phase 8 audit
+  tests to send the header, and added a test that missing/wrong keys get `401`.
+- `app/services/persistence.py`: `persist_agent_results`/`persist_approval`/
+  `update_request_status` — the remaining Section 4 tables (`agent_results`,
+  `policy_citations`, `approvals`) get written here; `audit_log` already had its own helper
+  (Phase 8) and `requests`/`patients` their own (`app/services/requests.py`, also Phase 8).
+- `app/graph/build_graph.py`: added `initial_state(request_id, patient)` — the zero-value
+  state every run starts from, previously duplicated ad hoc across three test files.
+- `app/api/requests.py`: `POST /requests`, `GET /requests/{id}`, `GET
+  /requests/{id}/recommendation`, `POST /requests/{id}/approval`. A **module-level singleton**
+  compiled graph (`_GRAPH = build_graph()`) is reused across requests so a paused thread_id
+  (== request_id) can be resumed by a later, separate HTTP call — this only works within one
+  running process, per the existing `MemorySaver` TODO (Phase 5/7). Live status/recommendation
+  reads come from `_GRAPH.get_state(...)`, not the DB; DB rows are still written for
+  durability/history. `submit_approval` returns `409` if the request isn't currently paused
+  (`snapshot.next` is empty).
+- `app/api/agents_status.py`: `GET /agents/status` — since there's no separate agent
+  process/queue (agents run in-process, synchronously), "load" is a simple count of
+  non-`decided` requests that used each agent; a documented simplification, not a real
+  health/queue-depth signal.
+- Refactored the `session_factory`/`client` TestClient fixtures (Phase 8 had them local to one
+  file) into `tests/integration/conftest.py`, shared with the new Phase 9 tests.
+
+**Verification performed:**
+- `tests/integration/test_requests_api.py` (6 tests): a critical-cardiac request auto-approves
+  through `POST /requests` straight to `decided`, and `GET .../recommendation` +
+  `GET /audit/{id}` both reflect it correctly; a moderate-severity request with weak citations
+  pauses (`pending_approval`), and `POST .../approval` with `approve` resumes it to `decided`;
+  approving an already-decided request returns `409`; unknown `request_id` returns `404` on
+  both status and recommendation; `GET /agents/status` lists all 3 known agents; and all of
+  `/requests`, `/requests/{id}`, `/agents/status` reject requests with no `X-API-Key`.
+- Live check (not just pytest): started `uvicorn`, fetched `/openapi.json`, and confirmed all
+  7 Section 10 endpoints are present (`/requests`, `/requests/{id}`, `.../recommendation`,
+  `.../approval`, `/policy/search`, `/audit/{id}`, `/agents/status`) plus `/health`; confirmed
+  `GET /docs` renders (`200`).
+- Full suite: 69/69 passing.

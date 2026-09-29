@@ -12,6 +12,28 @@ from app.graph.nodes.human_approval import human_approval_node
 from app.graph.nodes.input_validation import input_validation
 from app.graph.nodes.router import router_node
 from app.graph.state import WorkflowState
+from app.models.domain import PatientInfo
+
+
+def initial_state(request_id: str, patient: PatientInfo) -> WorkflowState:
+    """The zero-value `WorkflowState` a new run starts from."""
+    return {
+        "request_id": request_id,
+        "patient_information": patient,
+        "request_type": None,
+        "workflow_status": "new",
+        "active_agents": [],
+        "agent_results": [],
+        "retrieved_policies": [],
+        "confidence_scores": {},
+        "approval_status": None,
+        "final_recommendation": None,
+        "audit_trail": [],
+        "retry_count": 0,
+        "force_human_review": False,
+        "conflict_detected": False,
+        "override_decision": None,
+    }
 
 
 def _route_after_validation(state: WorkflowState) -> str:

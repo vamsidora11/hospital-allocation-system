@@ -3,21 +3,14 @@ run. Runs the graph hermetically (same pattern as test_graph.py), persists the r
 audit trail to a throwaway SQLite DB, and reads it back through the real FastAPI endpoint.
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 import app.graph.nodes.agent_execution as agent_execution_module
 import app.graph.nodes.router as router_module
 from app.agents import bed_allocation, emergency_routing, staff_allocation
-from app.db import get_session
 from app.graph.build_graph import build_graph
-from app.main import app as fastapi_app
 from app.models.domain import PatientInfo, PolicyCitation
-from app.models.orm import Base
 from app.services.audit import persist_entries
 from app.services.requests import create_request
+from tests.integration.conftest import AUTH_HEADERS
 
 ALL_8_STATES = [
     "INPUT_VALIDATION",
@@ -29,27 +22,6 @@ ALL_8_STATES = [
     "FINAL_DECISION",
     "AUDIT_LOGGING",
 ]
-
-
-@pytest.fixture
-def session_factory(tmp_path):
-    engine = create_engine(f"sqlite:///{tmp_path / 'test_audit.db'}", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(engine)
-    return sessionmaker(bind=engine)
-
-
-@pytest.fixture
-def client(session_factory):
-    def override_get_session():
-        session = session_factory()
-        try:
-            yield session
-        finally:
-            session.close()
-
-    fastapi_app.dependency_overrides[get_session] = override_get_session
-    yield TestClient(fastapi_app)
-    fastapi_app.dependency_overrides.clear()
 
 
 def _good_citation() -> PolicyCitation:
@@ -133,7 +105,7 @@ def test_audit_endpoint_shows_all_8_states_for_a_completed_run(monkeypatch, clie
     persist_entries(session, audit_trail)
     session.close()
 
-    response = client.get(f"/audit/{request_id}")
+    response = client.get(f"/audit/{request_id}", headers=AUTH_HEADERS)
     assert response.status_code == 200
 
     entries = response.json()
@@ -147,6 +119,11 @@ def test_audit_endpoint_shows_all_8_states_for_a_completed_run(monkeypatch, clie
 
 
 def test_audit_endpoint_returns_empty_list_for_unknown_request(client):
-    response = client.get("/audit/REQ-DOES-NOT-EXIST")
+    response = client.get("/audit/REQ-DOES-NOT-EXIST", headers=AUTH_HEADERS)
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_audit_endpoint_rejects_missing_or_wrong_api_key(client):
+    assert client.get("/audit/REQ-DOES-NOT-EXIST").status_code == 401
+    assert client.get("/audit/REQ-DOES-NOT-EXIST", headers={"X-API-Key": "wrong"}).status_code == 401
