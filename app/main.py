@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.agents_status import router as agents_status_router
 from app.api.audit import router as audit_router
@@ -18,10 +22,24 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Demo-only convenience: the showcase UI can be served same-origin at /demo (no CORS
+# needed), but CORS is still permissive here in case it's opened from elsewhere in dev.
+# TODO(pre-production): restrict this before going anywhere near real patient data.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(requests_router)
 app.include_router(policy_router)
 app.include_router(audit_router)
 app.include_router(agents_status_router)
+
+_DEMO_DIR = Path(__file__).resolve().parents[1] / "frontend" / "demo"
+if _DEMO_DIR.exists():
+    app.mount("/demo", StaticFiles(directory=str(_DEMO_DIR), html=True), name="demo")
 
 
 @app.get("/health")

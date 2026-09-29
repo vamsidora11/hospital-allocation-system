@@ -492,3 +492,85 @@ kind/minikube cluster. Both are written to spec but unverified end-to-end.
   import and got structlog's un-configured console-style default output instead, which would
   have been a false negative if I hadn't caught it.
 - Full suite: 78/78 passing.
+
+## Phase 12 — Wire up the showcase UI
+
+- Copied `hospital-resource-allocation-demo.html` (the reference file from the repo root,
+  left untouched there) into `frontend/demo/index.html` per plan Section 2's structure, and
+  replaced its entire mock JS layer — `POLICY_LIBRARY`, `classify()`, `bedAgent()`/
+  `staffAgent()`/`emergencyAgent()`, and the `setTimeout`-driven fake pipeline — with real
+  `fetch()` calls to `POST /requests`, `GET /requests/{id}`, `GET
+  /requests/{id}/recommendation`, `POST /requests/{id}/approval`, and `GET /audit/{id}`. All
+  CSS/markup is untouched.
+- `app/main.py`: mounted `frontend/demo/` as static files at `/demo` (same-origin, so no CORS
+  needed in practice) and added permissive `CORSMiddleware` anyway as a documented demo-only
+  convenience (`TODO(pre-production)`). The demo hardcodes the stub `X-API-Key` value, same
+  reasoning.
+- **API enhancement needed to support the UI's per-agent cards:** `GET
+  /requests/{id}/recommendation` previously only returned a flat citation list and one
+  concatenated reasoning string — not enough to render a card per agent (name, decision,
+  confidence, reasoning, its own citations), which is central to the original showcase's
+  design. Added an `agent_results` field (the full per-agent `AgentResult` list) to
+  `RecommendationResponse` rather than trying to reverse-engineer per-agent detail from the
+  combined string.
+- The mass-casualty scenario is rendered as 8 independent queue entries (each a real,
+  separate `request_id`) rather than one fake grouped batch — there's no batch-incident
+  endpoint in Section 10's API surface (see also Phase 10's note on this same point). Added a
+  small, 100%-real `batch-summary` panel (reusing the original CSS) that aggregates the
+  actual bed-type outcomes across a batch's requests as they complete, so that part of the
+  original visual design wasn't dropped even though the grouping itself is client-side-only.
+- Bed/ward/isolation occupancy gauges at the top are left as the original static illustrative
+  numbers — Section 10 doesn't define a live occupancy/capacity endpoint, so wiring them to
+  real data would be outside the API surface this phase is scoped to.
+
+**Verification performed — live against the real backend (not just pytest), since this
+phase's whole point is exercising the actual system:**
+- Started `uvicorn`, confirmed `/demo/` and `/demo/index.html` both return `200`.
+- **Scenario 1** (critical cardiac) via the exact same request sequence the JS makes: `POST
+  /requests` → `decided`/`auto_approved` immediately; `GET .../recommendation` returned
+  `bed_type: icu`, confidence 0.95, citations spanning "Bed allocation policy" and "Emergency
+  protocols" — using the **real** Gemini router, real Gemini agents, and real Chroma
+  retrieval (not mocked), matching the plan's scenario 1 criteria.
+- **Scenario 2** (isolation case) same way: `bed_type: isolation`, staff role "respiratory and
+  infectious care", confidence 0.95, citations spanning "Infection control standards" and
+  "Staffing policy".
+- **Scenario 3** (8-patient mass-casualty burst): submitted all 8 as separate real `POST
+  /requests` calls. All 8 reached `decided`/`auto_approved`; bed-type split was 2× `icu`
+  (the 2 critical patients) and 6× `general` (high/moderate/minor) — matching the
+  fixture-verified severity-driven contract from Phase 10; every one of the 8 has all 8
+  distinct audit states present. Also confirmed the real router, left to its own judgment
+  (not the rule-based fallback), still never selected `emergency_routing` for any
+  mass-casualty patient — consistent with, though not hard-coded to match,
+  `eval_fixtures.json`.
+- Noticed one real agent-execution retry (`attempts: 2`) fire during scenario 1's live run —
+  the retry/backoff logic (Phase 5) working against genuine transient failures from the live
+  API, not just the simulated ones in tests.
+- Confirmed `GET /requests/{id}`, `GET /audit/{id}`, and `GET
+  /requests/{id}/recommendation`'s response shapes match exactly what the new JS code reads
+  (state names, `output_snapshot` keys, `agent_results` fields) — checked field-by-field, not
+  just "it returned 200."
+- Full pytest suite re-run after all Phase 12 changes: 78/78 passing (unchanged from Phase
+  11 — this phase's real verification is the live checks above, not new pytest tests, since
+  there's no browser/DOM available in this sandbox to drive the actual UI).
+
+**TODO (honest limitation):** no browser is available in this sandbox, so the UI was never
+rendered and clicked through in an actual browser — verification here means the exact
+request/response sequence the JS performs was replayed manually and checked field-by-field
+against what the JS reads. Visual rendering, layout, and interactive button clicks are
+untested. If you have a browser available, open `http://localhost:8000/demo/` after `uvicorn
+app.main:app` and click through the three scenario buttons to confirm the visual result.
+
+---
+
+## All 13 phases (0–12) complete.
+
+Summary of what's genuinely unverified end-to-end in this sandbox, collected in one place:
+- `docker build` / `docker compose up` (no Docker available — Phase 0, Phase 11).
+- `kubectl apply` against a real kind/minikube cluster (no cluster available — Phase 11).
+- LangSmith tracing actually producing traces (env vars verified correct, no LangSmith
+  account available — Phase 11).
+- The demo UI rendered/clicked in an actual browser (no browser in this sandbox — Phase 12;
+  the underlying API calls it makes were verified live and field-by-field instead).
+- A Postgres-backed LangGraph checkpointer (currently `MemorySaver`, in-process only — Phase
+  5/7/9); the append-only `audit_log` grant is similarly only exercised on SQLite, not
+  Postgres (Phase 1).

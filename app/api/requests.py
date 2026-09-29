@@ -49,6 +49,10 @@ class RecommendationResponse(BaseModel):
     workflow_status: str
     final_recommendation: dict | None = None
     citations: list[dict] = []
+    # Full per-agent breakdown (name/decision/reasoning/confidence/citations/grounding) —
+    # `final_recommendation` only has a combined reasoning string and a flat citation list,
+    # which isn't enough for a UI that wants a card per agent (see frontend/demo/).
+    agent_results: list[dict] = []
 
 
 def _config(request_id: str) -> dict:
@@ -109,6 +113,7 @@ def get_recommendation(request_id: str) -> RecommendationResponse:
         workflow_status=values.get("workflow_status", "unknown"),
         final_recommendation=values.get("final_recommendation"),
         citations=citations,
+        agent_results=[r.model_dump() for r in values.get("agent_results", [])],
     )
 
 
