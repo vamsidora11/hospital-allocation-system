@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.models.domain import AuditEntry
 from app.models.orm import AuditLog
+from app.observability.logging import log_state_transition
 
 
 def make_entry(
@@ -21,6 +22,7 @@ def make_entry(
     output_snapshot: dict,
     actor: str = "system",
 ) -> AuditEntry:
+    log_state_transition(request_id, state, actor=actor)
     return AuditEntry(
         request_id=request_id,
         state=state,

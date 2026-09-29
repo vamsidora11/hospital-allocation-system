@@ -5,8 +5,12 @@ from app.api.audit import router as audit_router
 from app.api.policy import router as policy_router
 from app.api.requests import router as requests_router
 from app.config import get_settings
+from app.observability.logging import configure_logging
+from app.observability.tracing import configure_tracing
 
 settings = get_settings()
+configure_logging()
+configure_tracing()
 
 app = FastAPI(
     title="Hospital Resource Allocation System",

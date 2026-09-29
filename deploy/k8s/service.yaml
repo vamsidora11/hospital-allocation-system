@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hospital-allocation-api
+  labels:
+    app: hospital-allocation-system
+spec:
+  type: ClusterIP
+  selector:
+    app: hospital-allocation-system
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+      name: http

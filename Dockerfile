@@ -11,6 +11,7 @@ WORKDIR /app
 COPY --from=build /install /usr/local
 COPY app ./app
 COPY alembic ./alembic
+COPY alembic.ini ./
 COPY data ./data
 
 EXPOSE 8000

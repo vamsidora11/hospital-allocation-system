@@ -455,3 +455,40 @@ worth registering proper (de)serializers before switching to a persistent checkp
   them too — pytest conftest fixtures only apply to their own directory and subdirectories.
 
 **Verification performed:** all 3 scenarios pass; full suite 72/72.
+
+## Phase 11 — Observability & deployment
+
+- `app/observability/logging.py`: `structlog` configured for one JSON log line per state
+  transition (`log_state_transition`), correlated by `request_id`. Wired into
+  `app/services/audit.py`'s `make_entry` — every graph node already calls that once per
+  transition, so this required no changes to the 8 node files themselves.
+- `app/observability/tracing.py`: `configure_tracing()` sets `LANGCHAIN_TRACING_V2`/
+  `LANGCHAIN_API_KEY`/`LANGCHAIN_PROJECT` from our own settings — LangChain/LangGraph read
+  tracing config purely from env vars, no SDK call needed. **Unverified against a real
+  LangSmith account** — no API key available in this sandbox; the env vars get set
+  correctly (checked directly), but whether traces actually appear in LangSmith is untested.
+- Both wired into `app/main.py` at import time.
+- `deploy/k8s/{deployment,service,configmap,secret,hpa}.yaml` written per plan Section 12.
+  `secret.yaml` is a template (`REPLACE_ME` placeholders) — real values go through a secret
+  manager or `kubectl create secret`, never committed.
+- Removed `langchain-google-genai` from `pyproject.toml` — dead dependency, since Phase 3's
+  fix replaced it with a direct-REST client (`app/llm.py`/`app/rag/embeddings.py`) and it was
+  never actually imported anywhere in runtime code, only mentioned in comments. Added
+  `pyyaml` to the `dev` extras for the new manifest-validation test.
+- Dockerfile: added the missing `alembic.ini` copy (migrations would have failed without it
+  in the runtime image — `alembic/` alone isn't enough, `alembic.ini` points to it).
+
+**TODO — not achievable in this sandbox (no Docker, no cluster — see CLAUDE.md/Phase 0):**
+`docker build` itself was not run, and none of the k8s manifests were applied to a real
+kind/minikube cluster. Both are written to spec but unverified end-to-end.
+
+**Verification performed (what actually is verifiable here):**
+- `tests/unit/test_k8s_manifests.py` (6 tests): all 5 manifests parse as valid YAML with the
+  expected `kind`/`apiVersion`/`metadata.name`, and a guard against accidentally committing a
+  real-looking credential into `secret.yaml` instead of a `REPLACE_ME` placeholder.
+- Confirmed `structlog` actually emits well-formed JSON (`{"request_id": ..., "state": ...,
+  "event": "workflow_state_transition", ...}`) when invoked through the real app entrypoint
+  (`import app.main` first, so `configure_logging()` has run) — my first check skipped that
+  import and got structlog's un-configured console-style default output instead, which would
+  have been a false negative if I hadn't caught it.
+- Full suite: 78/78 passing.
