@@ -382,6 +382,16 @@
             arrival_mode:'mass_casualty'});
         });
       })()
+    },
+    {
+      key:'ankle', color:'var(--teal)', title:'Stable ankle sprain — routine',
+      sub:'35y, minor musculoskeletal injury, walk-in',
+      patients:[ patient({age:35, presenting_complaint:'ankle sprain', diagnosis_category:'musculoskeletal', severity:'minor', requires_isolation:false, requires_monitoring_level:'standard', arrival_mode:'walk_in'}) ]
+    },
+    {
+      key:'refill', color:'var(--teal)', title:'Routine medication refill — stable',
+      sub:'58y, chronic condition follow-up, walk-in',
+      patients:[ patient({age:58, presenting_complaint:'medication refill, stable vitals', diagnosis_category:'chronic_management', severity:'minor', requires_isolation:false, requires_monitoring_level:'standard', arrival_mode:'walk_in'}) ]
     }
   ];
 

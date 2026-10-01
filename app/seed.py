@@ -19,7 +19,7 @@ PATIENTS_CSV = REPO_ROOT / "data" / "seed" / "synthetic_patient_requests.csv"
 
 EXPECTED_BED_COUNT = 120
 EXPECTED_STAFF_COUNT = 48
-EXPECTED_PATIENT_COUNT = 68
+EXPECTED_PATIENT_COUNT = 98
 
 
 def _read_csv(path: Path) -> list[dict]:

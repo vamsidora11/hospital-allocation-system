@@ -49,7 +49,15 @@ def _rule_based_classify(patient: PatientInfo) -> RouterOutput:
 
     agents.append("bed_allocation")
 
-    if patient.requires_isolation or patient.severity == "critical" or patient.requires_monitoring_level == "icu":
+    # Staff allocation runs for: critical/ICU/isolation cases (as before) AND any
+    # ambulance arrival — ambulance patients always need a confirmed receiving team
+    # before the vehicle arrives, regardless of triage severity.
+    if (
+        patient.requires_isolation
+        or patient.severity == "critical"
+        or patient.requires_monitoring_level == "icu"
+        or patient.arrival_mode == "ambulance"
+    ):
         agents.append("staff_allocation")
 
     # de-duplicate while preserving order

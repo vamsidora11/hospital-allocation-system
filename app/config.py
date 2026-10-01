@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # Workflow thresholds
     human_approval_threshold: float = 0.70
     max_agent_retries: int = 3
+    # Minimum similarity score for a retrieved policy chunk to count as a grounding citation.
+    # 0.55 is calibrated for real semantic embeddings (Google/Azure). When running with the
+    # local hash-based fallback embedder (no API key configured), scores top out around 0.40,
+    # so lower this to 0.20 in .env to prevent every agent from being marked ungrounded.
+    rag_grounding_floor: float = 0.20
 
     # Force rule-based agents (fast, deterministic, no API calls) for testing/demo.
     # When True, ignores real LLM and uses decision rules instead. Default False = real LLM.

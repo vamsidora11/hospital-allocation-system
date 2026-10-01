@@ -8,6 +8,12 @@ from app.rag.embeddings import get_embedding_client
 from app.rag.vector_store import get_collection
 
 DEFAULT_K = 4
+
+def _grounding_floor() -> float:
+    from app.config import get_settings
+    return get_settings().rag_grounding_floor
+
+# Kept as module-level alias so existing imports in tests still resolve.
 GROUNDING_FLOOR = 0.55
 
 # An agent working a given domain should also see cross-cutting infection-control /
